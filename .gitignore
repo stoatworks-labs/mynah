@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.DS_Store
+
+# Stream Deck plugin bundles are build output
+streamdeck/com.stoatworks.mynah.sdPlugin/code/plugin.js
+streamdeck/com.stoatworks.mynah.sdPlugin/pi/inspector.js

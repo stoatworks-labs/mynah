@@ -1,0 +1,29 @@
+{
+  "SDKVersion": 2,
+  "Name": "Mynah",
+  "Version": "0.1.0",
+  "Author": "stoatworks-labs",
+  "Description": "Fire LivePremier command-line syntax from a Stream Deck key. Each key holds one command, e.g. \"Recall Screen 1 Memory 5\".",
+  "Category": "Mynah",
+  "CategoryIcon": "icon",
+  "Icon": "icon",
+  "URL": "https://github.com/stoatworks-labs/mynah",
+  "Software": { "MinimumVersion": "6.0" },
+  "OS": [
+    { "Platform": "mac", "MinimumVersion": "11" },
+    { "Platform": "windows", "MinimumVersion": "10" }
+  ],
+  "Nodejs": { "Version": "20", "Debug": "enabled" },
+  "CodePath": "code/plugin.js",
+  "Actions": [
+    {
+      "UUID": "com.stoatworks.mynah.command",
+      "Name": "Command",
+      "Icon": "icon",
+      "Tooltip": "Run one Mynah command on a LivePremier",
+      "PropertyInspectorPath": "pi/inspector.html",
+      "Controllers": ["Keypad"],
+      "States": [{ "Image": "icon", "TitleAlignment": "middle", "FontSize": "10" }]
+    }
+  ]
+}
