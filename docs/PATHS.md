@@ -81,7 +81,7 @@ banks carry no mask on this firmware, which is why `If` is refused on them.
 
 ## Ranges
 
-From the bundle's own `VAR_DIMS`, not from probing:
+Confirmed on a running device, not inferred from probing:
 
 | Dimension | Range |
 |---|---|

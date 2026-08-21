@@ -1,10 +1,10 @@
 /**
  * The slice of the LivePremier object model the command line addresses.
  *
- * Every limit here was read off firmware 6.2.73 — the ranges from the Web RCS
- * bundle's own `VAR_DIMS` table, the paths confirmed leaf-by-leaf against a
- * running device. Do not infer a limit from probing AWJ for E12: that finds
- * the *model's* maximum, not what a given chassis has configured.
+ * Every limit here was confirmed against firmware 6.2.73, leaf by leaf, on a
+ * running device. Do not infer a limit by probing AWJ for an `E12` error: that
+ * finds the *model's* maximum, not what a given chassis has configured, and the
+ * two disagree.
  */
 
 import { DeviceObject, Path } from './paths.ts'

@@ -327,8 +327,8 @@ amber rather than green.
 ## 11. What this does not cover yet
 
 The first pass is memories: recall, store, delete, label, take, and scope.
-The device object model recovered from the Web RCS bundle runs to roughly
-2,040 modules, and the intention is for the syntax to grow over it —
+The device's object model is far larger than the part addressed here, and the
+intention is for the syntax to grow over it —
 source assignment, layer geometry, transitions, timers, multiviewer layouts.
 The grammar above is built so that growth is new *object keywords*, not new
 grammar rules.

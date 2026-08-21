@@ -1,8 +1,8 @@
 /**
  * The Web RCS WebSocket — the socket the vendor browser UI itself speaks.
  *
- * Undocumented, but recovered from the Web RCS bundle and confirmed against a
- * running device on firmware 6.2.73. It is the right transport for a browser
+ * Undocumented by the vendor, and confirmed against a running device on
+ * firmware 6.2.73. It is the right transport for a browser
  * tool for three reasons: a page cannot open a raw TCP socket at all, so AWJ
  * on 10606 is unreachable from here; the device pushes state unsolicited from
  * the moment the socket opens, with no subscription list to get wrong; and

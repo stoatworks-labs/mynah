@@ -133,5 +133,5 @@ buffer `A` on one screen and `B` on another, so there is nothing to hard-code
 there.
 
 Not yet done: neither the **X-Keys** nor the **Stream Deck** path has been run
-against real hardware. The grammar covers memories only; the recovered object
-model runs to some 2,040 modules, and the syntax is built to grow over it.
+against real hardware. The grammar covers memories only; the device's object
+model is far larger, and the syntax is built to grow over it.

@@ -6,16 +6,13 @@ Mynah controls Analog Way **LivePremier** (Aquilon) processors. It is **not
 affiliated with or endorsed by Analog Way**, and redistributes no part of their
 software, firmware or documentation.
 
-The control paths it uses come from two places, both of which are the vendor's
-own and neither of which is copied into this repository:
+The control protocol is documented openly by Analog Way in the **AWJ Protocol
+Programmer's Guide**, which covers the port, the wire format and the
+memory-recall paths.
 
-- The **AWJ Protocol Programmer's Guide**, published openly by Analog Way, which
-  documents the port, the wire format and the memory-recall paths.
-- The device's **own Web RCS bundle**, served unauthenticated by every
-  LivePremier, which is shipped unminified with its original module paths. The
-  object model was read from it. Nothing from it is redistributed here — the
-  paths this project uses are listed in `docs/PATHS.md` in its own words, and
-  every one was verified by reading it back off a running device.
+Nothing of Analog Way's is redistributed here. Every path this project uses is
+listed in `docs/PATHS.md` in its own words, and every one was verified by
+reading it back off a running device before it was relied on.
 
 ## The grammar
 
