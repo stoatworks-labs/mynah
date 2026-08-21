@@ -52,8 +52,15 @@ export function useLink(): UseLink {
   const [log, setLog] = useState<LogEntry[]>([])
   const [remoteSelection, setRemoteSelection] = useState<readonly string[]>([])
 
-  /** Path key → the log entry waiting on it, so pushes can find their command. */
-  const pending = useRef(new Map<string, number>())
+  /**
+   * Path key → the entry waiting on it, and the value that was written.
+   *
+   * The value is kept because the echo is only an acknowledgement if it comes
+   * back carrying what we sent. Matching on `true` alone would work for the
+   * trigger properties and silently never confirm a label (a string) or a
+   * master-store filter (an array).
+   */
+  const pending = useRef(new Map<string, { id: number; value: unknown }>())
 
   /**
    * Recalls awaiting proof that anything actually loaded.
@@ -84,7 +91,7 @@ export function useLink(): UseLink {
       // Its arrival at all is what proves the memory had something in it.
       if (key.endsWith('/pp/isLoading')) {
         const trigger = key.replace(/\/pp\/isLoading$/, '/pp/xRequest')
-        const id = pending.current.get(trigger)
+        const id = pending.current.get(trigger)?.id
         if (id === undefined) return
 
         const exp = expecting.current.get(id)
@@ -105,9 +112,12 @@ export function useLink(): UseLink {
       }
 
       // The echo of our own write is proof it was accepted, but not that it
-      // finished.
-      const id = pending.current.get(key)
-      if (id !== undefined && v.value === true) {
+      // finished. It counts only when it carries the value we sent — the
+      // device also pushes the trigger back to false afterwards, and that is
+      // not an acknowledgement of anything.
+      const p = pending.current.get(key)
+      if (p !== undefined && JSON.stringify(v.value) === JSON.stringify(p.value)) {
+        const id = p.id
         update(id, { status: 'working' })
 
         // A recall is settled by `isLoading`, not by the echo. If none turns
@@ -185,7 +195,7 @@ export function useLink(): UseLink {
     let allSent = true
     for (const op of ops) {
       const path = op.path.toWs()
-      pending.current.set(path.join('/'), id)
+      pending.current.set(path.join('/'), { id, value: op.value })
       if (!link!.write(path, op.value)) allSent = false
     }
     if (!allSent) {

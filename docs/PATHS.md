@@ -2,7 +2,9 @@
 
 Every path here was read back off a running LivePremier before it was used.
 
-**Firmware: 6.2.73** (simulator, reporting `NLC_CMAX`). Analog Way moved paths
+**Firmware: 6.2.73.** Derived on the simulator (`NLC_CMAX`) and then
+**re-verified leaf-by-leaf on a real Aquilon C (`NLC_C`) — 21 of 21 paths
+resolved, zero failures.** Analog Way moved paths
 at AWJ guide v4.0 and again before 6.2 — `$screenGroup` is gone on this
 firmware, replaced by `$screenAuxGroup`, and the guide's own subscription
 example would fail as printed. Treat this table as firmware-tagged and re-verify
@@ -124,6 +126,18 @@ slot 1 (populated)          slot 5 (empty)
 
 So `isLoading` never appearing is the tell, and it is what Mynah reports as an
 empty memory. There is no error and no negative acknowledgement.
+
+**Reproduced identically on a real Aquilon C**, not just the simulator.
+
+## The echo carries the value you wrote
+
+A write is acknowledged by the device pushing the same path back. Match on the
+*value you sent*, not on `true`: the triggers are booleans, but a label is a
+string and the master-store filters are arrays, and a client that only accepts
+`true` will report those as unconfirmed forever while they land perfectly well.
+The device also pushes a trigger back to `false` afterwards, which is not an
+acknowledgement of anything. Found on hardware — a `Label` that worked was
+being reported as failed.
 
 ## The HTTP side
 

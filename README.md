@@ -92,11 +92,20 @@ npm run build:streamdeck  # the Stream Deck plugin
 
 ## Status
 
-**v0.1.0.** The command line, the compiler and the WebSocket link are exercised
-against the LivePremier simulator on firmware 6.2.73 — every path in
-`docs/PATHS.md` was read back off a running device before it was used.
+**v0.1.0, and it has driven a real switcher.**
 
-Not yet done: **no command has been sent to a physical Aquilon**, and neither
-the X-Keys nor the Stream Deck path has been run against real hardware. The
-grammar covers memories only; the recovered object model runs to some 2,040
-modules, and the syntax is built to grow over it.
+Verified on a physical **Aquilon C** on firmware 6.2.73: all 21 paths in
+`docs/PATHS.md` resolve, and every verb was executed from the command line —
+store, recall, label, delete, a layer memory, a program recall, a Take, and the
+six-op masked master store, with the filters read back exactly as compiled. The
+empty-memory behaviour reproduced identically to the simulator. Test memories
+were deleted afterwards and the box left clean.
+
+Hardware also found two bugs, both fixed: a label was reported unconfirmed
+because the echo matcher only accepted `true`, and preview turned out to map to
+buffer `A` on one screen and `B` on another, so there is nothing to hard-code
+there.
+
+Not yet done: neither the **X-Keys** nor the **Stream Deck** path has been run
+against real hardware. The grammar covers memories only; the recovered object
+model runs to some 2,040 modules, and the syntax is built to grow over it.
