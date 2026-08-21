@@ -1,0 +1,28 @@
+# Cloudflare deployment for Mynah.
+#
+# A static-assets-only Worker: no server code, same shape as the other browser
+# tools. Cloudflare runs the Vite build, so dist/ stays out of git. Set the
+# build command in the Cloudflare project to:
+#
+#   npm ci && npm run build
+#
+# public/_headers is copied into dist/ by Vite and carries the CSP; the assets
+# runtime honours it. `npm run preview` does NOT apply it — use
+# `npm run serve:dist` to test the CSP for real.
+#
+# ⚠️ The hosted copy cannot drive a switcher, and that is not a bug in the
+# config. A LivePremier serves the Web RCS over plain http/ws on port 80 and has
+# 443 closed, so a page on https:// is blocked from reaching it by mixed-content
+# rules. This deployment is the syntax reference and offline compiler; live
+# control needs the container or a local checkout, served over http on the same
+# network as the switcher. The app detects this and says so.
+
+name = "mynah"
+compatibility_date = "2026-08-21"
+
+[assets]
+directory = "./dist"
+
+[[routes]]
+pattern = "mynah.stoatworks-labs.com"
+custom_domain = true

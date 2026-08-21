@@ -148,7 +148,8 @@ input[type='text'],
   background: var(--warn);
 }
 .status-error .dot,
-.status-closed .dot {
+.status-closed .dot,
+.status-blocked .dot {
   background: var(--bad);
 }
 

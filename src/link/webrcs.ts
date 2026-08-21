@@ -31,7 +31,26 @@ const PING_INTERVAL_MS = 1000
 export const DEVICE_PORT = 80
 export const SIMULATOR_PORT = 3000
 
-export type LinkState = 'idle' | 'connecting' | 'open' | 'closed' | 'error'
+export type LinkState = 'idle' | 'connecting' | 'open' | 'closed' | 'error' | 'blocked'
+
+/**
+ * Whether this page can open a plain `ws://` socket at all.
+ *
+ * A LivePremier serves the Web RCS over plain HTTP on port 80 and **has 443
+ * closed**, so there is no `wss://` to connect to. Browsers block insecure
+ * WebSockets from a secure page as mixed content, which means a copy of this
+ * tool served over `https://` can never reach a switcher no matter what the
+ * operator types — the socket is refused before it leaves the browser.
+ *
+ * Detecting it up front turns an unexplained failure into a sentence.
+ */
+export function mixedContentBlocked(): boolean {
+  return typeof location !== 'undefined' && location.protocol === 'https:'
+}
+
+export const MIXED_CONTENT_REASON =
+  'This page is served over HTTPS, and a LivePremier only offers plain ws:// on port 80 with 443 closed. ' +
+  'Browsers block that combination as mixed content. Run Mynah from localhost or a self-hosted http:// copy on the same network as the switcher.'
 
 export interface DeviceValue {
   readonly path: readonly string[]
@@ -79,6 +98,14 @@ export class WebRcsLink {
 
   connect(): void {
     this.closedByUs = false
+
+    // Fail loudly and early rather than letting the browser refuse the socket
+    // with a console message the operator will never see.
+    if (mixedContentBlocked()) {
+      this.events.onState?.('blocked', MIXED_CONTENT_REASON)
+      return
+    }
+
     this.events.onState?.('connecting')
 
     let ws: WebSocket

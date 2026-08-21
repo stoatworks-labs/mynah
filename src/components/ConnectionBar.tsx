@@ -17,6 +17,7 @@ const LABEL: Record<LinkState, string> = {
   open: 'Connected',
   closed: 'Disconnected',
   error: 'Error',
+  blocked: 'Blocked by HTTPS',
 }
 
 export function ConnectionBar({ state, detail, host, port, onHost, onPort, onConnect, onDisconnect }: Props) {

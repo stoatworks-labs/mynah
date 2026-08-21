@@ -67,6 +67,25 @@ It also means Mynah sees what a human does in the vendor UI, and follows the
 Web RCS's own screen selection so that selecting a screen in either place
 selects it in both.
 
+### It has to be served over http, and that is not negotiable
+
+A LivePremier serves the Web RCS over **plain http on port 80, with 443 closed**.
+There is no `wss://` to connect to, and browsers block an insecure WebSocket
+from a secure page as mixed content. So:
+
+| Where Mynah runs | Can it drive a switcher? |
+|---|---|
+| `localhost` from a checkout | **yes** |
+| self-hosted over http on the show network | **yes** |
+| the hosted https:// copy | **no** — blocked before the socket leaves the browser |
+
+The hosted copy is still useful as the syntax reference and offline compiler:
+it parses, it shows you exactly which device paths a command produces, and it
+carries the whole vocabulary. It just cannot reach a device, and it says so
+plainly rather than failing silently.
+
+For live control on a show, run it locally or from the container.
+
 ## Devices
 
 Keyboard, X-Keys and Stream Deck all run the same grammar — see
