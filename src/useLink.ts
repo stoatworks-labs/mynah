@@ -14,6 +14,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Op } from './lang/compile.ts'
 import { WebRcsLink } from './link/webrcs.ts'
 import { DesktopLink } from './link/desktop.ts'
+import { SimLink } from './link/sim.ts'
+import type { SimDevice } from './sim/device.ts'
 import { isDesktop, type DeviceValue, type Link, type LinkState } from './link/transport.ts'
 
 export type EntryStatus = 'sent' | 'working' | 'done' | 'empty' | 'failed' | 'offline'
@@ -33,7 +35,7 @@ export interface UseLink {
   readonly stateDetail?: string
   readonly log: readonly LogEntry[]
   readonly remoteSelection: readonly string[]
-  connect: (host: string, port: number) => void
+  connect: (host: string, port: number, sim?: SimConnect) => void
   disconnect: () => void
   /**
    * Send a compiled command. `expectSlot` is the memory a recall should land,
@@ -43,6 +45,13 @@ export interface UseLink {
   /** Record a command that produced no device writes, e.g. Select. */
   note: (input: string, summary: string) => number
   clearLog: () => void
+}
+
+/** Run against the built-in simulator instead of a device. */
+export interface SimConnect {
+  readonly device: SimDevice
+  /** Called whenever the simulated output could have changed. */
+  readonly onChanged: () => void
 }
 
 let nextId = 1
@@ -153,7 +162,7 @@ export function useLink(): UseLink {
   )
 
   const connect = useCallback(
-    (host: string, port: number) => {
+    (host: string, port: number, sim?: SimConnect) => {
       linkRef.current?.disconnect()
       const events = {
         onState: (s: LinkState, detail?: string) => {
@@ -166,9 +175,11 @@ export function useLink(): UseLink {
       // In the desktop build the socket lives in Rust, because the webview is a
       // secure context and may not open a plain ws:// any more than an https
       // page may. Everything above this line is identical either way.
-      const link: Link = isDesktop()
-        ? new DesktopLink(host, port, events)
-        : new WebRcsLink(WebRcsLink.urlFor(host, port), events)
+      const link: Link = sim
+        ? new SimLink(sim.device, events, sim.onChanged)
+        : isDesktop()
+          ? new DesktopLink(host, port, events)
+          : new WebRcsLink(WebRcsLink.urlFor(host, port), events)
       linkRef.current = link
       link.connect()
     },

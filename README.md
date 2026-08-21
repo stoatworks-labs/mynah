@@ -90,10 +90,22 @@ from a secure page as mixed content. So:
 | the **desktop app** | **yes** |
 | the hosted https:// copy | **no** — blocked before the socket leaves the browser |
 
-The hosted copy is still useful as the syntax reference and offline compiler:
-it parses, it shows you exactly which device paths a command produces, and it
-carries the whole vocabulary. It just cannot reach a device, and it says so
-plainly rather than failing silently.
+So the hosted copy runs a **simulator instead**, and says so in a banner you
+cannot miss. It is a model of a LivePremier built into the page: four screens
+with layers and three preset buffers each, the four memory banks, and a
+wireframe of what every screen is putting out. Recall a memory and watch the
+preview change; press Take and watch the buffers swap.
+
+It reproduces the device's awkward behaviour on purpose, because those are the
+things worth meeting for the first time somewhere other than a show:
+
+- a recall of an empty memory is answered with **silence**, and reported as an
+  empty memory rather than as success
+- preview and program are names for whichever buffer is pending or live, **the
+  mapping differs per screen**, and a Take swaps it
+
+The simulator is available in every build, not just the hosted one — tick
+**Simulator** in the connection bar.
 
 For live control on a show, use the desktop app, the container, or a local
 checkout.

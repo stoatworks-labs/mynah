@@ -500,3 +500,189 @@ input[type='text'],
   color: var(--text-faint);
   font-size: 11px;
 }
+
+/* --- demo banner ---------------------------------------------------------- */
+
+/* Deliberately loud. Someone arriving at the hosted copy should know within a
+   second that nothing here reaches a switcher, rather than finding out when a
+   command does nothing on a show. */
+.demo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: baseline;
+  margin: 14px 0 0;
+  padding: 10px 14px;
+  border: 1px solid #6a4a12;
+  border-left: 3px solid var(--accent);
+  border-radius: 5px;
+  background: #241c0c;
+  font-size: 12px;
+}
+
+.demo-banner strong {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.demo-banner span {
+  color: var(--text-dim);
+  flex: 1 1 320px;
+}
+
+/* --- wireframe ------------------------------------------------------------ */
+
+.wire {
+  margin-top: 20px;
+}
+
+.wire-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.wire h2 {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--text-faint);
+  margin: 0;
+  font-weight: 500;
+}
+
+.wire-note {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.wire-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.wire-screen {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px;
+  background: var(--bg-raised);
+}
+
+.wire-screen-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.wire-canvas {
+  color: var(--text-faint);
+  font-size: 11px;
+}
+
+.wire-panes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.wire-pane {
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 6px;
+  background: var(--bg-sunken);
+}
+
+/* Program is the one that matters, so it is the one that is coloured. */
+.wire-pane.on-air {
+  border-color: #7a3030;
+}
+
+.wire-pane figcaption {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 5px;
+}
+
+.wire-role {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+}
+
+.wire-pane.on-air .wire-role {
+  color: #e08585;
+}
+
+.wire-buffer {
+  font-size: 10px;
+  color: var(--text-faint);
+  cursor: help;
+}
+
+.wire-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 2px;
+}
+
+.wire-bg {
+  fill: #0d1014;
+  stroke: var(--line);
+  stroke-width: 0.5;
+}
+
+.wire-native {
+  fill: #1b2430;
+  stroke: #2f4058;
+  stroke-width: 0.6;
+}
+
+.wire-layer {
+  fill: #223448;
+  stroke: #4d7fb0;
+  stroke-width: 0.8;
+}
+
+.wire-label {
+  fill: #9fb6cc;
+  font-size: 4.2px;
+  font-family: var(--mono);
+}
+
+.wire-empty-text {
+  fill: var(--text-faint);
+  font-size: 7px;
+  font-family: var(--mono);
+}
+
+.wire-mem {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+  margin-top: 5px;
+  font-size: 10px;
+}
+
+.wire-memno {
+  color: var(--accent);
+}
+
+.wire-none {
+  color: var(--text-faint);
+}
+
+.wire-memlabel {
+  color: var(--text-dim);
+}

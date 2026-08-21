@@ -4,7 +4,9 @@ import { compile, type Selection } from './lang/compile.ts'
 import { completions, keywordTable } from './lang/keywords.ts'
 import { parse } from './lang/parser.ts'
 import { VERIFIED_FIRMWARE } from './lang/model.ts'
-import { SIMULATOR_PORT } from './link/webrcs.ts'
+import { SIMULATOR_PORT, mixedContentBlocked } from './link/webrcs.ts'
+import { SimDevice } from './sim/device.ts'
+import { Wireframe } from './components/Wireframe.tsx'
 import { fetchBankIndex, type BankIndex } from './link/banks.ts'
 import { useLink } from './useLink.ts'
 import { CommandLine } from './components/CommandLine.tsx'
@@ -28,6 +30,24 @@ export function App() {
   const [host, setHost] = useState('127.0.0.1')
   const [port, setPort] = useState(SIMULATOR_PORT)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  /**
+   * The hosted copy runs the built-in simulator, because it cannot do anything
+   * else: a page on https is blocked from reaching a switcher, which is
+   * http-only with 443 closed. Offering a connection box there would be
+   * offering a button that can only fail.
+   */
+  const [demo, setDemo] = useState(() => mixedContentBlocked())
+  const simRef = useRef<SimDevice>(new SimDevice())
+  const [simTick, setSimTick] = useState(0)
+
+  const connect = useCallback(
+    (h: string, p: number) =>
+      demo
+        ? link.connect(h, p, { device: simRef.current, onChanged: () => setSimTick((t) => t + 1) })
+        : link.connect(h, p),
+    [demo, link],
+  )
 
   /**
    * The memory index costs a 124 MB download, so it is asked for rather than
@@ -103,6 +123,8 @@ export function App() {
       warning: empty ? `Memory ${compiled.slot} is empty — the device will accept this and do nothing` : undefined,
     }
   }, [input, selection, slotEmpty])
+
+  const history = useMemo(() => link.log.map((e) => e.input), [link.log])
 
   const suggestions = useMemo(() => {
     const lastWord = /([A-Za-z]+)$/.exec(input)?.[1] ?? ''
@@ -208,8 +230,14 @@ export function App() {
           port={port}
           onHost={setHost}
           onPort={setPort}
-          onConnect={link.connect}
+          onConnect={connect}
           onDisconnect={link.disconnect}
+          demo={demo}
+          onDemo={(v) => {
+            link.disconnect()
+            setDemo(v)
+          }}
+          demoLocked={mixedContentBlocked()}
         />
       </header>
 
@@ -225,6 +253,16 @@ export function App() {
         onIndex={indexMemories}
       />
 
+      {demo && (
+        <div className="demo-banner" role="status">
+          <strong>Demo mode — this is a simulator, not a switcher.</strong>
+          <span>
+            Commands run against a model of a LivePremier built into the page, so you can learn the
+            syntax and watch what each command does. Nothing here reaches real hardware.
+          </span>
+        </div>
+      )}
+
       <main className="main">
         <section className="console">
           <CommandLine
@@ -234,7 +272,9 @@ export function App() {
             onSubmit={execute}
             preview={preview}
             suggestions={suggestions}
+            history={history}
           />
+          {demo && <Wireframe device={simRef.current} tick={simTick} />}
           <Log entries={link.log} onClear={link.clearLog} />
         </section>
 

@@ -1,4 +1,4 @@
-import { forwardRef, type KeyboardEvent } from 'react'
+import { forwardRef, useRef, type KeyboardEvent } from 'react'
 
 import type { Op } from '../lang/compile.ts'
 import type { Keyword } from '../lang/keywords.ts'
@@ -14,6 +14,8 @@ interface Props {
   onSubmit: () => void
   preview: Preview
   suggestions: readonly Keyword[]
+  /** Everything typed this session, newest first. */
+  history: readonly string[]
 }
 
 /**
@@ -25,13 +27,42 @@ interface Props {
  * be able to see that it is eight and not eighty.
  */
 export const CommandLine = forwardRef<HTMLInputElement, Props>(function CommandLine(
-  { value, onChange, onSubmit, preview, suggestions },
+  { value, onChange, onSubmit, preview, suggestions, history },
   ref,
 ) {
+  // Where we are in the history. -1 is the live line being typed, which is
+  // kept aside so walking up and back down returns you to it intact.
+  const cursor = useRef(-1)
+  const draft = useRef('')
+
+  const recall = (delta: number) => {
+    if (history.length === 0) return
+    if (cursor.current === -1) draft.current = value
+
+    const next = Math.min(Math.max(cursor.current + delta, -1), history.length - 1)
+    cursor.current = next
+    onChange(next === -1 ? draft.current : history[next])
+  }
+
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault()
+      cursor.current = -1
+      draft.current = ''
       onSubmit()
+      return
+    }
+
+    // Up and down walk the history, as a terminal does. Only when the
+    // suggestion list is not what the arrows should be driving.
+    if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      recall(1)
+      return
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      recall(-1)
       return
     }
     if (e.key === 'Tab' && suggestions.length > 0) {
@@ -56,7 +87,7 @@ export const CommandLine = forwardRef<HTMLInputElement, Props>(function CommandL
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder="Recall Screen 1 Memory 5"
+          placeholder="Recall Screen 1 Memory 5   (↑ for history)"
           spellCheck={false}
           autoComplete="off"
           autoFocus

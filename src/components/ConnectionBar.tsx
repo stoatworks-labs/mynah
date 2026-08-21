@@ -9,6 +9,11 @@ interface Props {
   onPort: (v: number) => void
   onConnect: (host: string, port: number) => void
   onDisconnect: () => void
+  /** Run against the built-in simulator rather than a switcher. */
+  demo: boolean
+  onDemo: (v: boolean) => void
+  /** True when a real connection is impossible here, so demo cannot be turned off. */
+  demoLocked: boolean
 }
 
 const LABEL: Record<LinkState, string> = {
@@ -20,12 +25,40 @@ const LABEL: Record<LinkState, string> = {
   blocked: 'Blocked by HTTPS',
 }
 
-export function ConnectionBar({ state, detail, host, port, onHost, onPort, onConnect, onDisconnect }: Props) {
+export function ConnectionBar({
+  state,
+  detail,
+  host,
+  port,
+  onHost,
+  onPort,
+  onConnect,
+  onDisconnect,
+  demo,
+  onDemo,
+  demoLocked,
+}: Props) {
   const live = state === 'open' || state === 'connecting'
 
   return (
     <div className="connbar">
-      <label className="field">
+      <label
+        className="toggle"
+        title={
+          demoLocked
+            ? 'This page is served over HTTPS, so it cannot reach a switcher. The simulator is the only option here.'
+            : 'Run commands against a model of a LivePremier instead of a real one'
+        }
+      >
+        <input
+          type="checkbox"
+          checked={demo}
+          disabled={live || demoLocked}
+          onChange={(e) => onDemo(e.target.checked)}
+        />
+        <span>Simulator</span>
+      </label>
+      <label className="field" hidden={demo}>
         <span>Device</span>
         <input
           value={host}
@@ -35,7 +68,7 @@ export function ConnectionBar({ state, detail, host, port, onHost, onPort, onCon
           size={14}
         />
       </label>
-      <label className="field">
+      <label className="field" hidden={demo}>
         <span>Port</span>
         <input
           value={String(port)}
@@ -49,7 +82,7 @@ export function ConnectionBar({ state, detail, host, port, onHost, onPort, onCon
         className="btn"
         onClick={() => (live ? onDisconnect() : onConnect(host, port))}
       >
-        {live ? 'Disconnect' : 'Connect'}
+        {live ? 'Disconnect' : demo ? 'Start simulator' : 'Connect'}
       </button>
       <span className={`status status-${state}`} title={detail}>
         <i className="dot" />
