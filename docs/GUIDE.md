@@ -169,15 +169,41 @@ Set Screen 3 Layer 2 Source Colour      flat colour
 Set Screen 3 Layer 2 Source None        nothing
 ```
 
-Size and position, each taking pixels or a percentage of the canvas:
+### Pixels or percentages, wherever a value goes
+
+Every value takes either. A bare number is **pixels**; a number with `%` is a
+proportion of that screen's real canvas.
 
 ```
-Set Screen 3 Layer 2 Size 50%           half, both axes
-Set Screen 3 Layer 2 Size 50% 25%       half wide, a quarter tall
-Set Screen 3 Layer 2 Size 960 540       pixels
-Set Screen 3 Layer 2 Position 50% 50%   centred
+Set Screen 3 Layer 2 Size 50%            half the canvas, both axes
+Set Screen 3 Layer 2 Size 50% 25%        half wide, a quarter tall
+Set Screen 3 Layer 2 Size 960 540        pixels
+Set Screen 3 Layer 2 Position 50% 50%    centred
 Set Screen 3 Layer 2 Opacity 50%
 ```
+
+You can mix them freely — within one attribute, and across a command:
+
+```
+Set Screen 3 Layer 2 Size 960 25%
+Set Screen 3 Layer 2 Size 50% Position 640 360
+Set Screen 3 Layer 2 Position 33.3%
+```
+
+**A layer may be bigger than its canvas**, and **a position may be negative** —
+`Size 150%` and `Position -100 50` are both fine. Since the anchor is the
+layer's centre, negatives are how you push a layer off an edge.
+
+A **size** may not be negative, and that is the device's rule rather than ours:
+its range for a size starts at 0. Mynah refuses it and says so.
+
+The device's own limits, which Mynah checks against:
+
+| | range |
+|---|---|
+| Position | −2000000 to 2000000 px |
+| Size | 0 to 1000000 px |
+| Opacity | 0 to 256 |
 
 ### If you prefer the desk spelling
 

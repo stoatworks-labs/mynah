@@ -256,14 +256,27 @@ class Parser {
 
   private parseAmount(what: string): Amount | undefined {
     this.eatAt()
+
+    // A leading `-` is a sign here, not the range operator. Only the parser
+    // knows which, because it depends on whether a value is expected — so the
+    // lexer stays dumb and the decision is made at the one place it is
+    // unambiguous. Negative positions are legal on the device and normal in
+    // use: the anchor is the layer's centre, so pushing a layer off the edge
+    // means a negative number.
+    let sign = 1
+    if (this.peek()?.kind === 'minus') {
+      this.pos++
+      sign = -1
+    }
+
     const t = this.peek()
     if (t?.kind === 'percent') {
       this.pos++
-      return { value: t.value, percent: true }
+      return { value: sign * t.value, percent: true }
     }
     if (t?.kind === 'number') {
       this.pos++
-      return { value: t.value, percent: false }
+      return { value: sign * t.value, percent: false }
     }
     this.error(`Expected a value for ${what} — a number of pixels, or a percentage like 50%`, t)
     return undefined
@@ -273,13 +286,23 @@ class Parser {
   private parseAmountPair(what: string): readonly Amount[] | undefined {
     const first = this.parseAmount(what)
     if (!first) return undefined
-    const t = this.peek()
-    if (t?.kind === 'number' || t?.kind === 'percent') {
+    // A second amount may lead with `At` or a sign, not just a bare digit, so
+    // "Position At -100 At 50" reads as naturally as "Position -100 50".
+    if (this.atAmount()) {
       const second = this.parseAmount(what)
       if (!second) return undefined
       return [first, second]
     }
     return [first]
+  }
+
+  /** True if what follows could begin a value. */
+  private atAmount(): boolean {
+    const t = this.peek()
+    if (t?.kind === 'number' || t?.kind === 'percent' || t?.kind === 'minus') return true
+    if (t?.kind !== 'keyword' || t.keyword.word !== 'At') return false
+    const next = this.tokens[this.pos + 1]
+    return next?.kind === 'number' || next?.kind === 'percent' || next?.kind === 'minus'
   }
 
   private parseAssignmentInto(set: Mutable<Assignment>): boolean {

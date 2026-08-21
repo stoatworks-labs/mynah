@@ -412,3 +412,65 @@ describe('Set — live layer control', () => {
     ])
   })
 })
+
+// ---------------------------------------------------------------------------
+// Units: pixels and percentages, everywhere a value is taken
+// ---------------------------------------------------------------------------
+
+describe('pixels and percentages', () => {
+  it('takes a percentage of the real canvas', () => {
+    expect(runSet('Set Screen 3 Layer 2 Size 50%').ops.map((o) => o.value)).toEqual([960, 540])
+  })
+
+  it('takes plain numbers as pixels', () => {
+    expect(runSet('Set Screen 3 Layer 2 Size 960 540').ops.map((o) => o.value)).toEqual([960, 540])
+  })
+
+  it('mixes the two within one attribute', () => {
+    expect(runSet('Set Screen 3 Layer 2 Size 960 25%').ops.map((o) => o.value)).toEqual([960, 270])
+    expect(runSet('Set Screen 3 Layer 2 Size 50% 540').ops.map((o) => o.value)).toEqual([960, 540])
+  })
+
+  it('mixes the two across attributes in one command', () => {
+    expect(runSet('Set Screen 3 Layer 2 Size 50% Position 640 360').ops.map((o) => o.value)).toEqual([
+      960, 540, 640, 360,
+    ])
+  })
+
+  it('accepts a fractional percentage', () => {
+    expect(runSet('Set Screen 3 Layer 2 Position 33.3%').ops.map((o) => o.value)).toEqual([639, 360])
+  })
+
+  it('allows a layer larger than its canvas', () => {
+    expect(runSet('Set Screen 3 Layer 2 Size 150%').ops.map((o) => o.value)).toEqual([2880, 1620])
+  })
+
+  it('allows a negative position, in pixels or percent', () => {
+    // The anchor is the layer's centre, so pushing a layer off the edge is
+    // routine — and the device's own range for a position is signed.
+    expect(runSet('Set Screen 3 Layer 2 Position -100 50').ops.map((o) => o.value)).toEqual([-100, 50])
+    expect(runSet('Set Screen 3 Layer 2 Position -50%').ops.map((o) => o.value)).toEqual([-960, -540])
+  })
+
+  it('refuses a negative size, which the device has no range for', () => {
+    expect(setError('Set Screen 3 Layer 2 Size -100')).toMatch(/cannot have a negative size/)
+    expect(setError('Set Screen 3 Layer 2 Size -50%')).toMatch(/cannot have a negative size/)
+  })
+
+  it('range-checks against the device, not against the canvas', () => {
+    expect(setError('Set Screen 3 Layer 2 Position -3000000')).toMatch(/-2000000 and 2000000/)
+    expect(setError('Set Screen 3 Layer 2 Opacity -10')).toMatch(/0 to 256/)
+  })
+
+  it('takes At before either amount, or neither', () => {
+    const plain = runSet('Set Screen 3 Layer 2 Position -100 50').ops.map((o) => o.value)
+    expect(runSet('Set Screen 3 Layer 2 Position At -100 At 50').ops.map((o) => o.value)).toEqual(plain)
+    expect(runSet('Set Screen 3 Layer 2 Position At -100 50').ops.map((o) => o.value)).toEqual(plain)
+  })
+
+  it('still reads a minus as range subtraction where a range is expected', () => {
+    // The same character, told apart by whether a value or a range is due.
+    expect(run('Take Screen 1 Thru 8 - 5').ops).toHaveLength(7)
+    expect(run('Recall Screen 1 + 3 - 1 Memory 5').ops).toHaveLength(1)
+  })
+})

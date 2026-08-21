@@ -84,12 +84,23 @@ export const SOURCES = {
   share: 32,
 } as const
 
-/** Layer parameter limits, in the units the device actually uses. */
+/**
+ * Layer parameter limits, in the units the device actually uses.
+ *
+ * Straight from the device's own attribute table. Note the asymmetry: a
+ * position may be **negative** — pushing a layer off the edge of the canvas is
+ * a normal thing to do, and since the anchor is the layer's centre it is
+ * routine — while a size may not.
+ */
 export const LAYER = {
   /** Opacity is 0–256, not 0–100. */
   opacityMax: 256,
   /** Position and size are in pixels, anchored on the layer's centre. */
   anchorDefault: 'MIDDLE_CENTER',
+  positionMin: -2_000_000,
+  positionMax: 2_000_000,
+  sizeMin: 0,
+  sizeMax: 1_000_000,
 } as const
 
 // ---------------------------------------------------------------------------

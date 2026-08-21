@@ -119,9 +119,21 @@ inside an `If` — told apart by where they appear.
 | Keyword | Short | Value |
 |---|---|---|
 | `Source` | `So` | a live input number, or `Still <n>`, `Colour`, `None` |
-| `Size` | `Si` | one or two amounts — pixels or a percentage of the canvas |
-| `Position` | `Po` | one or two amounts; this is the layer's **centre** |
+| `Size` | `Si` | one or two amounts; **0 to 1000000 px**, may exceed the canvas |
+| `Position` | `Po` | one or two amounts; the layer's **centre**, **−2000000 to 2000000 px** |
 | `Opacity` | `O` | an amount; the device's scale is **0–256**, not 0–100 |
+
+### Amounts
+
+```ebnf
+amount = [ "At" ] , [ "-" ] , number , [ "%" ] ;
+```
+
+A bare number is **pixels**; a number with `%` is a proportion of the screen's
+canvas. Both may be mixed freely, within an attribute and across a command.
+A leading `-` is a **sign** here, not the range operator — which one it is
+depends on whether a value or a range is expected, so the lexer emits the token
+and the parser decides. Positions may be negative; sizes may not.
 
 `At` may appear before any value, and a command may lead with the object, both
 borrowed from grandMA3 and Titan. These are identical:

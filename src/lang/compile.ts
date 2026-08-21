@@ -524,6 +524,11 @@ function assignmentOps(
     if (typeof h === 'string') return h
     const v = px(vAmt, 'h', 'Size')
     if (typeof v === 'string') return v
+    for (const [axis, n] of [['Width', h], ['Height', v]] as const) {
+      if (n < LAYER.sizeMin || n > LAYER.sizeMax) {
+        return `${axis} ${n}px is out of range — a size must be between ${LAYER.sizeMin} and ${LAYER.sizeMax}. A layer cannot have a negative size, though it can be larger than the canvas.`
+      }
+    }
     ops.push(
       { path: layerPosition(t, buffer, layer, 'sizeH'), value: h, describe: `Width ${h}px` },
       { path: layerPosition(t, buffer, layer, 'sizeV'), value: v, describe: `Height ${v}px` },
@@ -536,6 +541,11 @@ function assignmentOps(
     if (typeof h === 'string') return h
     const v = px(vAmt, 'h', 'Position')
     if (typeof v === 'string') return v
+    for (const [axis, n] of [['X', h], ['Y', v]] as const) {
+      if (n < LAYER.positionMin || n > LAYER.positionMax) {
+        return `${axis} ${n}px is out of range — a position must be between ${LAYER.positionMin} and ${LAYER.positionMax}.`
+      }
+    }
     ops.push(
       { path: layerPosition(t, buffer, layer, 'posH'), value: h, describe: `X ${h}px (layer centre)` },
       { path: layerPosition(t, buffer, layer, 'posV'), value: v, describe: `Y ${v}px (layer centre)` },
