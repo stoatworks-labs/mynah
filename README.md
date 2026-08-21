@@ -67,6 +67,16 @@ It also means Mynah sees what a human does in the vendor UI, and follows the
 Web RCS's own screen selection so that selecting a screen in either place
 selects it in both.
 
+### The desktop app, if you want the simple answer
+
+Download it and it just works — macOS, Windows and Linux, about 5 MB. It talks
+to the switcher directly, with no browser sandbox in the way.
+
+```bash
+npm run desktop        # run it from a checkout
+npm run desktop:build  # build the installers
+```
+
 ### It has to be served over http, and that is not negotiable
 
 A LivePremier serves the Web RCS over **plain http on port 80, with 443 closed**.
@@ -77,6 +87,7 @@ from a secure page as mixed content. So:
 |---|---|
 | `localhost` from a checkout | **yes** |
 | self-hosted over http on the show network | **yes** |
+| the **desktop app** | **yes** |
 | the hosted https:// copy | **no** — blocked before the socket leaves the browser |
 
 The hosted copy is still useful as the syntax reference and offline compiler:
@@ -84,7 +95,14 @@ it parses, it shows you exactly which device paths a command produces, and it
 carries the whole vocabulary. It just cannot reach a device, and it says so
 plainly rather than failing silently.
 
-For live control on a show, run it locally or from the container.
+For live control on a show, use the desktop app, the container, or a local
+checkout.
+
+And no, a proxy cannot fix the hosted copy. A Cloudflare Worker runs at the
+edge and cannot reach a switcher on your own network, and tunnelling one out to
+the public internet would expose an **unauthenticated** control interface —
+anyone who reached it could drive your show. The desktop app is the answer to
+that question.
 
 ## Devices
 

@@ -1,5 +1,27 @@
 # Input devices
 
+## Where to run it
+
+| | Can it drive a switcher? |
+|---|---|
+| **Desktop app** (macOS, Windows, Linux) | **yes** — no browser sandbox in the way |
+| `localhost` from a checkout | **yes** |
+| self-hosted over http (the container) | **yes** |
+| the hosted `https://` copy | **no** — blocked before the socket leaves the browser |
+
+The desktop app exists because of that last row. A LivePremier serves the Web
+RCS over plain http on port 80 **with 443 closed**, and a browser will not open
+an insecure WebSocket from a secure page. The desktop build does its device I/O
+in Rust instead of in the webview — which it has to, because Tauri registers
+its own scheme as trustworthy, making the webview a secure context subject to
+exactly the same rule.
+
+No proxy can rescue the hosted copy for a switcher on your own network: a
+Cloudflare Worker runs at the edge and cannot reach a private address, and
+tunnelling the switcher out to the public internet would expose an
+**unauthenticated** control interface. Use the desktop app.
+
+
 All three run the same grammar. A key does not have a special "recall memory 5"
 capability — it holds the string `Recall Screen 1 Memory 5`, which is parsed and
 compiled by exactly the code that handles the typed command line.

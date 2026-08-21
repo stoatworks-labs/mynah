@@ -12,7 +12,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import type { Op } from './lang/compile.ts'
-import { WebRcsLink, type DeviceValue, type LinkState } from './link/webrcs.ts'
+import { WebRcsLink } from './link/webrcs.ts'
+import { DesktopLink } from './link/desktop.ts'
+import { isDesktop, type DeviceValue, type Link, type LinkState } from './link/transport.ts'
 
 export type EntryStatus = 'sent' | 'working' | 'done' | 'empty' | 'failed' | 'offline'
 
@@ -46,7 +48,7 @@ export interface UseLink {
 let nextId = 1
 
 export function useLink(): UseLink {
-  const linkRef = useRef<WebRcsLink | undefined>(undefined)
+  const linkRef = useRef<Link | undefined>(undefined)
   const [state, setState] = useState<LinkState>('idle')
   const [stateDetail, setStateDetail] = useState<string | undefined>()
   const [log, setLog] = useState<LogEntry[]>([])
@@ -153,14 +155,20 @@ export function useLink(): UseLink {
   const connect = useCallback(
     (host: string, port: number) => {
       linkRef.current?.disconnect()
-      const link = new WebRcsLink(WebRcsLink.urlFor(host, port), {
-        onState: (s, detail) => {
+      const events = {
+        onState: (s: LinkState, detail?: string) => {
           setState(s)
           setStateDetail(detail)
         },
         onValue,
-        onRemoteSelection: (keys) => setRemoteSelection(keys),
-      })
+        onRemoteSelection: (keys: readonly string[]) => setRemoteSelection(keys),
+      }
+      // In the desktop build the socket lives in Rust, because the webview is a
+      // secure context and may not open a plain ws:// any more than an https
+      // page may. Everything above this line is identical either way.
+      const link: Link = isDesktop()
+        ? new DesktopLink(host, port, events)
+        : new WebRcsLink(WebRcsLink.urlFor(host, port), events)
       linkRef.current = link
       link.connect()
     },

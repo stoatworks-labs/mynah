@@ -9,3 +9,6 @@ streamdeck/com.stoatworks.mynah.sdPlugin/pi/inspector.js
 
 # Language bundle for external consumers; built on demand
 dist-lang/
+
+# Tauri build output
+src-tauri/target/

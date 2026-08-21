@@ -31,7 +31,9 @@ const PING_INTERVAL_MS = 1000
 export const DEVICE_PORT = 80
 export const SIMULATOR_PORT = 3000
 
-export type LinkState = 'idle' | 'connecting' | 'open' | 'closed' | 'error' | 'blocked'
+import type { DeviceValue, Link, LinkEvents, LinkState } from './transport.ts'
+
+export type { DeviceValue, LinkEvents, LinkState }
 
 /**
  * Whether this page can open a plain `ws://` socket at all.
@@ -50,22 +52,10 @@ export function mixedContentBlocked(): boolean {
 
 export const MIXED_CONTENT_REASON =
   'This page is served over HTTPS, and a LivePremier only offers plain ws:// on port 80 with 443 closed. ' +
-  'Browsers block that combination as mixed content. Run Mynah from localhost or a self-hosted http:// copy on the same network as the switcher.'
+  'Browsers block that combination as mixed content, and no proxy can fix it for a switcher on your own network. ' +
+  'Use the desktop app, which talks to the switcher directly, or run Mynah over http from the container or a local checkout.'
 
-export interface DeviceValue {
-  readonly path: readonly string[]
-  readonly value: unknown
-}
-
-export interface LinkEvents {
-  onState?: (state: LinkState, detail?: string) => void
-  /** A device property changed — either ours echoed back, or someone else's. */
-  onValue?: (v: DeviceValue) => void
-  /** The vendor UI's own screen selection, when it changes. */
-  onRemoteSelection?: (keys: readonly string[]) => void
-}
-
-export class WebRcsLink {
+export class WebRcsLink implements Link {
   private ws?: WebSocket
   private pingTimer?: ReturnType<typeof setInterval>
   private idleTimer?: ReturnType<typeof setTimeout>
