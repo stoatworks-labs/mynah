@@ -9,7 +9,14 @@
  * first time a keyword is added.
  */
 
-export type KeywordKind = 'function' | 'object' | 'mode' | 'category' | 'operator' | 'clause'
+export type KeywordKind =
+  | 'function'
+  | 'object'
+  | 'mode'
+  | 'category'
+  | 'operator'
+  | 'clause'
+  | 'attribute'
 
 export interface Keyword {
   readonly word: string
@@ -27,6 +34,7 @@ export const KEYWORDS: readonly Keyword[] = [
   kw('Label', 'function'),
   kw('Select', 'function'),
   kw('Clear', 'function'),
+  kw('Set', 'function'),
 
   // Objects
   kw('Screen', 'object'),
@@ -41,18 +49,32 @@ export const KEYWORDS: readonly Keyword[] = [
   kw('Preview', 'mode'),
   kw('Program', 'mode'),
 
+  // Live layer attributes, and — inside an If clause — record-mask categories.
+  kw('Source', 'attribute'),
+  kw('Position', 'attribute'),
+  kw('Size', 'attribute'),
+  kw('Opacity', 'attribute'),
+
+  // Source families, for anything that is not a live input
+  kw('Still', 'object'),
+  kw('None', 'object'),
+  kw('Colour', 'object'),
+
   // Clause
   kw('If', 'clause'),
   kw('Category', 'clause'),
 
   // Range operator that is a word rather than a symbol
   kw('Thru', 'operator'),
+  // Assignment, borrowed from grandMA3 and Titan. Optional noise before a
+  // value, so both "Set … Source 1" and "… Source At 1" read naturally.
+  kw('At', 'operator'),
 
-  // Record-mask categories
-  kw('Source', 'category'),
-  kw('Position', 'category'),
-  kw('Size', 'category'),
-  kw('Opacity', 'category'),
+  // Record-mask categories. Source, Position, Size and Opacity are NOT repeated
+  // here: they are declared once above as attributes, and the parser reads them
+  // as categories when they appear inside an If clause. A keyword may only
+  // appear once in this table, or it has no abbreviation and resolves to
+  // whichever copy comes first.
   kw('Cropping', 'category'),
   kw('Border', 'category'),
   kw('Transitions', 'category'),

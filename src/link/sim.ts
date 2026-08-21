@@ -38,6 +38,11 @@ export class SimLink implements Link {
       setTimeout(() => {
         this.current = 'open'
         this.events.onState?.('open', 'Built-in simulator')
+        // Report the canvas sizes and buffer roles the way a device would, so
+        // the app learns them through the same path either way.
+        for (const f of this.device.facts()) {
+          this.events.onValue?.({ path: f.path, value: f.value })
+        }
         this.events.onRemoteSelection?.(['S1'])
       }, 180),
     )

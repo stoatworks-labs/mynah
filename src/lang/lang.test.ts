@@ -17,6 +17,11 @@ function awjPaths(input: string, selection?: Selection) {
   return run(input, selection).ops.map((o) => o.path.toAwj())
 }
 
+/** Assert an op targets a given AWJ path. */
+function assertPath(op: { path: { toAwj(): string } }, expected: string) {
+  expect(op.path.toAwj()).toBe(expected)
+}
+
 function errorOf(input: string, selection?: Selection): string {
   const parsed = parse(input)
   if (!parsed.ok) return parsed.errors.map((e) => e.message).join('; ')
@@ -277,5 +282,133 @@ describe('label and delete', () => {
 
   it('deletes from the layer bank when a layer is in scope', () => {
     expect(awjPaths('Delete Screen 1 Layer 2 Memory 7')[0]).toContain('layerBank')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Live layer control
+// ---------------------------------------------------------------------------
+
+/**
+ * A stand-in for a connected device. S3 is a 1920x1080 screen whose program is
+ * buffer A; S1's program is B, because the mapping genuinely differs per screen
+ * and the compiler must not assume otherwise.
+ */
+const facts = {
+  buffer: (t: { kind: string; n: number }, mode: string) => {
+    const program = t.n === 1 ? 'B' : 'A'
+    const preview = program === 'A' ? 'B' : 'A'
+    return (mode === 'PROGRAM' ? program : preview) as 'A' | 'B'
+  },
+  canvas: () => ({ w: 1920, h: 1080 }),
+}
+
+function runSet(input: string) {
+  const parsed = parse(input)
+  if (!parsed.ok) throw new Error(`parse failed: ${parsed.errors[0].message}`)
+  const c = compile(parsed.command, { facts } as never)
+  if (!c.ok) throw new Error(`compile failed: ${c.errors[0].message}`)
+  return c
+}
+
+function setError(input: string, ctx: object = { facts }) {
+  const parsed = parse(input)
+  if (!parsed.ok) return parsed.errors[0].message
+  const c = compile(parsed.command, ctx as never)
+  if (!c.ok) return c.errors[0].message
+  throw new Error(`expected "${input}" to fail`)
+}
+
+describe('Set — live layer control', () => {
+  it('assigns a source as the device enum, not a number', () => {
+    const [op] = runSet('Set Screen 3 Layer 2 Source 1').ops
+    assertPath(op, 'DeviceObject/$screen/@items/S3/$preset/@items/B/$layer/@items/2/source/@props/inputNum')
+    expect(op.value).toBe('LIVE_1')
+  })
+
+  it('addresses the buffer, resolved from the take state, not PREVIEW/PROGRAM', () => {
+    // S3's program is A, so its preview is B.
+    expect(runSet('Set Screen 3 Layer 2 Source 1').ops[0].path.toAwj()).toContain('/$preset/@items/B/')
+    expect(runSet('Set Screen 3 Layer 2 Source 1 Program').ops[0].path.toAwj()).toContain('/$preset/@items/A/')
+    // S1 is the other way round, which is the whole point of asking the device.
+    expect(runSet('Set Screen 1 Layer 2 Source 1').ops[0].path.toAwj()).toContain('/$preset/@items/A/')
+  })
+
+  it('resolves a percentage against the real canvas', () => {
+    const ops = runSet('Set Screen 3 Layer 2 Size 50%').ops
+    expect(ops.map((o) => o.value)).toEqual([960, 540])
+  })
+
+  it('takes two amounts as horizontal then vertical', () => {
+    expect(runSet('Set Screen 3 Layer 2 Size 50% 25%').ops.map((o) => o.value)).toEqual([960, 270])
+  })
+
+  it('treats a plain number as pixels', () => {
+    expect(runSet('Set Screen 3 Layer 2 Size 640 360').ops.map((o) => o.value)).toEqual([640, 360])
+  })
+
+  it('scales opacity to the device 0-256, not 0-100', () => {
+    expect(runSet('Set Screen 3 Layer 2 Opacity 50%').ops[0].value).toBe(128)
+    expect(runSet('Set Screen 3 Layer 2 Opacity 256').ops[0].value).toBe(256)
+  })
+
+  it('accepts the At spelling, and the object-first form', () => {
+    const a = runSet('Set Screen 3 Layer 2 Source 1').ops
+    const b = runSet('Set Screen 3 Layer 2 Source At 1').ops
+    const c = runSet('Screen 3 Layer 2 Source At 1').ops
+    expect(b.map((o) => o.path.toAwj())).toEqual(a.map((o) => o.path.toAwj()))
+    expect(c.map((o) => o.path.toAwj())).toEqual(a.map((o) => o.path.toAwj()))
+  })
+
+  it('handles stills, colour and none', () => {
+    expect(runSet('Set Screen 3 Layer 2 Source Still 4').ops[0].value).toBe('STILL_4')
+    expect(runSet('Set Screen 3 Layer 2 Source None').ops[0].value).toBe('NONE')
+    expect(runSet('Set Screen 3 Layer 2 Source Colour').ops[0].value).toBe('COLOR')
+  })
+
+  it('refuses a percentage when the canvas is unknown', () => {
+    const noCanvas = { facts: { buffer: facts.buffer, canvas: () => undefined } }
+    expect(setError('Set Screen 3 Layer 2 Size 50%', noCanvas)).toMatch(/canvas size .* is not known/)
+    // Pixels still work without it.
+    const parsed = parse('Set Screen 3 Layer 2 Size 640')
+    if (!parsed.ok) throw new Error('should parse')
+    expect(compile(parsed.command, noCanvas as never).ok).toBe(true)
+  })
+
+  it('refuses when the take state is unknown rather than guessing a buffer', () => {
+    const noBuffer = { facts: { buffer: () => undefined, canvas: facts.canvas } }
+    expect(setError('Set Screen 3 Layer 2 Source 1', noBuffer)).toMatch(/has not reported its take state/)
+  })
+
+  it('refuses without a live connection at all', () => {
+    expect(setError('Set Screen 3 Layer 2 Source 1', {})).toMatch(/needs a live connection/)
+  })
+
+  it('needs a layer, because these are layer parameters', () => {
+    expect(setError('Set Screen 3 Source 1')).toMatch(/needs a Layer/)
+  })
+
+  it('rejects an out-of-range source', () => {
+    expect(setError('Set Screen 3 Layer 2 Source 99')).toMatch(/live inputs are 1 to 64/)
+  })
+
+  it('keeps Source usable as a record-mask category inside If', () => {
+    // The same word, told apart by where it appears.
+    const p = parse('Store Master 12 If Category Source + Position')
+    expect(p.ok).toBe(true)
+    expect(setError('Recall Screen 1 Memory 5 Source 1')).toMatch(/does not take Source/)
+  })
+
+  it('compiles the whole worked example in one command', () => {
+    // "select screen 3, layer 2, assign it source 1, set the size to 50% of the
+    // window, and position it 1/3 of the way across the screen"
+    const c = runSet('Set Screen 3 Layer 2 Source 1 Size 50% Position 33% 50%')
+    expect(c.ops.map((o) => [o.path.toAwj().split('/').slice(-3).join('/'), o.value])).toEqual([
+      ['source/@props/inputNum', 'LIVE_1'],
+      ['position/@props/sizeH', 960],
+      ['position/@props/sizeV', 540],
+      ['position/@props/posH', 634],
+      ['position/@props/posV', 540],
+    ])
   })
 })

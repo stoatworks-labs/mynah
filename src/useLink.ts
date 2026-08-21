@@ -30,8 +30,19 @@ export interface LogEntry {
   readonly at: number
 }
 
+/** What the device has told us about itself, for commands that need it. */
+export interface ScreenFacts {
+  canvasW?: number
+  canvasH?: number
+  transition?: string
+  presetUp?: string
+  presetDown?: string
+}
+
 export interface UseLink {
   readonly state: LinkState
+  /** Per-screen facts, keyed S1/A1 — populated from device pushes. */
+  readonly facts: ReadonlyMap<string, ScreenFacts>
   readonly stateDetail?: string
   readonly log: readonly LogEntry[]
   readonly remoteSelection: readonly string[]
@@ -62,6 +73,7 @@ export function useLink(): UseLink {
   const [stateDetail, setStateDetail] = useState<string | undefined>()
   const [log, setLog] = useState<LogEntry[]>([])
   const [remoteSelection, setRemoteSelection] = useState<readonly string[]>([])
+  const [facts, setFacts] = useState<ReadonlyMap<string, ScreenFacts>>(new Map())
 
   /**
    * Path key → the entry waiting on it, and the value that was written.
@@ -97,6 +109,25 @@ export function useLink(): UseLink {
   const onValue = useCallback(
     (v: DeviceValue) => {
       const key = v.path.join('/')
+
+      // Facts the compiler needs and a command cannot supply: the canvas size,
+      // and which buffer each end of the transition holds.
+      const fact =
+        /^device\/screenList\/items\/(\w+)\/status\/size\/pp\/(sizeH|sizeV)$/.exec(key) ??
+        /^device\/screenAuxGroupList\/items\/(\w+)\/(?:status|control)\/pp\/(transition|presetUp|presetDown)$/.exec(key)
+      if (fact) {
+        const [, screen, prop] = fact
+        setFacts((prev) => {
+          const next = new Map(prev)
+          const cur = { ...(next.get(screen) ?? {}) }
+          if (prop === 'sizeH') cur.canvasW = Number(v.value)
+          else if (prop === 'sizeV') cur.canvasH = Number(v.value)
+          else (cur as Record<string, unknown>)[prop] = String(v.value)
+          next.set(screen, cur)
+          return next
+        })
+        return
+      }
 
       // `isLoading` is the device telling us a recall is in flight, then done.
       // Its arrival at all is what proves the memory had something in it.
@@ -245,7 +276,7 @@ export function useLink(): UseLink {
   const clearLog = useCallback(() => setLog([]), [])
 
   return useMemo(
-    () => ({ state, stateDetail, log, remoteSelection, connect, disconnect, send, note, clearLog }),
-    [state, stateDetail, log, remoteSelection, connect, disconnect, send, note, clearLog],
+    () => ({ state, stateDetail, log, remoteSelection, facts, connect, disconnect, send, note, clearLog }),
+    [state, stateDetail, log, remoteSelection, facts, connect, disconnect, send, note, clearLog],
   )
 }

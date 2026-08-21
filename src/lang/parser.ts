@@ -10,7 +10,17 @@
  * question, and policy lives in the compiler where it can be stated once.
  */
 
-import type { Command, Filter, FunctionName, NumberSet, ParseError, ParseResult, Scope } from './ast.ts'
+import type {
+  Amount,
+  Assignment,
+  Command,
+  Filter,
+  FunctionName,
+  NumberSet,
+  ParseError,
+  ParseResult,
+  Scope,
+} from './ast.ts'
 import { CATEGORIES, DIMS, type Category } from './model.ts'
 import { lex, type Token } from './lexer.ts'
 
@@ -39,7 +49,11 @@ const FUNCTIONS: readonly string[] = [
   'Label',
   'Select',
   'Clear',
+  'Set',
 ]
+
+/** Attribute keywords, which are also category names inside an `If`. */
+const ATTRIBUTES: readonly string[] = ['Source', 'Position', 'Size', 'Opacity']
 
 class Parser {
   private pos = 0
@@ -52,10 +66,6 @@ class Parser {
 
   private peek(): Token | undefined {
     return this.tokens[this.pos]
-  }
-
-  private next(): Token | undefined {
-    return this.tokens[this.pos++]
   }
 
   private atEnd(): boolean {
@@ -194,6 +204,17 @@ class Parser {
     return { native: false, numbers }
   }
 
+  /** True if an attribute keyword appears anywhere ahead, and no function does. */
+  private looksLikeAssignment(): boolean {
+    let sawAttribute = false
+    for (const t of this.tokens.slice(this.pos)) {
+      if (t.kind !== 'keyword') continue
+      if (FUNCTIONS.includes(t.keyword.word)) return false
+      if (ATTRIBUTES.includes(t.keyword.word)) sawAttribute = true
+    }
+    return sawAttribute
+  }
+
   private parseScopeInto(scope: Mutable<Scope>): boolean {
     if (this.eatKeyword('Screen')) {
       const r = this.parseRange(DIMS.screen.min, DIMS.screen.max, 'Screen')
@@ -225,6 +246,89 @@ class Parser {
   }
 
   // -------------------------------------------------------------------------
+  // Assignment
+  // -------------------------------------------------------------------------
+
+  /** `At` is optional noise before a value, for the desk-operator spelling. */
+  private eatAt(): void {
+    this.eatKeyword('At')
+  }
+
+  private parseAmount(what: string): Amount | undefined {
+    this.eatAt()
+    const t = this.peek()
+    if (t?.kind === 'percent') {
+      this.pos++
+      return { value: t.value, percent: true }
+    }
+    if (t?.kind === 'number') {
+      this.pos++
+      return { value: t.value, percent: false }
+    }
+    this.error(`Expected a value for ${what} — a number of pixels, or a percentage like 50%`, t)
+    return undefined
+  }
+
+  /** One or two amounts: a single value means both axes. */
+  private parseAmountPair(what: string): readonly Amount[] | undefined {
+    const first = this.parseAmount(what)
+    if (!first) return undefined
+    const t = this.peek()
+    if (t?.kind === 'number' || t?.kind === 'percent') {
+      const second = this.parseAmount(what)
+      if (!second) return undefined
+      return [first, second]
+    }
+    return [first]
+  }
+
+  private parseAssignmentInto(set: Mutable<Assignment>): boolean {
+    if (this.eatKeyword('Source')) {
+      this.eatAt()
+      if (this.eatKeyword('None')) {
+        set.source = { family: 'none' }
+        return true
+      }
+      if (this.eatKeyword('Colour')) {
+        set.source = { family: 'colour' }
+        return true
+      }
+      const still = this.eatKeyword('Still')
+      const t = this.peek()
+      if (t?.kind !== 'number') {
+        this.error('Expected a source number, or None / Colour', t)
+        return false
+      }
+      this.pos++
+      set.source = { family: still ? 'still' : 'live', n: t.value }
+      return true
+    }
+
+    if (this.eatKeyword('Size')) {
+      const a = this.parseAmountPair('Size')
+      if (!a) return false
+      set.size = a
+      return true
+    }
+
+    if (this.eatKeyword('Position')) {
+      const a = this.parseAmountPair('Position')
+      if (!a) return false
+      set.position = a
+      return true
+    }
+
+    if (this.eatKeyword('Opacity')) {
+      const a = this.parseAmount('Opacity')
+      if (!a) return false
+      set.opacity = a
+      return true
+    }
+
+    return false
+  }
+
+  // -------------------------------------------------------------------------
   // If clause
   // -------------------------------------------------------------------------
 
@@ -232,7 +336,12 @@ class Parser {
     const out: Category[] = []
     for (;;) {
       const t = this.peek()
-      if (t?.kind !== 'keyword' || t.keyword.kind !== 'category') {
+      // Source, Position, Size and Opacity are declared as attributes but are
+      // category names here — the same words, told apart by context.
+      const isCategory =
+        t?.kind === 'keyword' &&
+        (t.keyword.kind === 'category' || ATTRIBUTES.includes(t.keyword.word))
+      if (!isCategory) {
         if (out.length === 0) {
           this.error(
             `Expected a category — one of ${CATEGORIES.length} record-mask categories`,
@@ -305,21 +414,29 @@ class Parser {
   // -------------------------------------------------------------------------
 
   parseCommand(): Command | undefined {
-    const head = this.next()
+    const head = this.peek()
     if (!head) {
       this.error('Empty command')
       return undefined
     }
-    if (head.kind !== 'keyword' || !FUNCTIONS.includes(head.keyword.word)) {
-      this.error(
-        `A command starts with a function — ${FUNCTIONS.join(', ')}`,
-        head,
-      )
+
+    let fn: FunctionName
+    if (head.kind === 'keyword' && FUNCTIONS.includes(head.keyword.word)) {
+      this.pos++
+      fn = head.keyword.word as FunctionName
+    } else if (head.kind === 'keyword' && this.looksLikeAssignment()) {
+      // "Screen 3 Layer 2 Source At 1" — the object-first spelling both
+      // grandMA3 and Titan use for assignment. Only accepted when an attribute
+      // actually appears, so a genuinely malformed command still gets the
+      // clearer "starts with a function" error.
+      fn = 'Set'
+    } else {
+      this.error(`A command starts with a function — ${FUNCTIONS.join(', ')}`, head)
       return undefined
     }
-    const fn = head.keyword.word as FunctionName
 
     const scope: Mutable<Scope> = {}
+    const set: Mutable<Assignment> = {}
     let memory: number | undefined
     let mode: Command['mode']
     let label: string | undefined
@@ -374,12 +491,23 @@ class Parser {
       }
 
       if (this.parseScopeInto(scope)) continue
+      if (this.parseAssignmentInto(set)) continue
 
       this.error(`Unexpected ${describe(t)} here`, t)
       return undefined
     }
 
-    return { fn, scope, memory, mode, label, filter }
+    const assignment = Object.keys(set).length > 0 ? (set as Assignment) : undefined
+    if (fn === 'Set' && !assignment) {
+      this.error('Set needs something to set — Source, Size, Position or Opacity')
+      return undefined
+    }
+    if (fn !== 'Set' && assignment) {
+      this.error(`${fn} does not take Source, Size, Position or Opacity — use Set`)
+      return undefined
+    }
+
+    return { fn, scope, memory, mode, label, filter, set: assignment }
   }
 }
 
@@ -392,6 +520,8 @@ function describe(t: Token | undefined): string {
       return `keyword "${t.keyword.word}"`
     case 'number':
       return `number ${t.value}`
+    case 'percent':
+      return `${t.value}%`
     case 'string':
       return 'text'
     case 'plus':

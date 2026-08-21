@@ -30,7 +30,17 @@ your eyes leaving the screen. That is all this is.
 
 ## What it does today
 
-Memories: recall, store, delete, label, take, and scope.
+**Memories** — recall, store, delete, label, take, and scope.
+
+**Live layer control** — source, size, position and opacity, on any layer of
+any screen:
+
+```
+Set Screen 3 Layer 2 Source 1 Size 50% Position 33% 50%
+```
+
+Percentages resolve against the screen's real canvas, and position is the
+layer's centre because that is the device's anchor.
 
 | Bank | Slots | Scope |
 |---|---|---|
@@ -39,8 +49,10 @@ Memories: recall, store, delete, label, take, and scope.
 | Layer | 1–50 | Screen × Preview/Program × layer (Native, 1–128) |
 | Multiviewer | 1–50 | output |
 
-The full grammar is in [docs/SYNTAX.md](docs/SYNTAX.md). The device paths
-behind it, with the firmware they were verified on, are in
+**New to it? Start with the [programming guide](docs/GUIDE.md)** — every
+command from one word upwards, with worked examples you can paste into the
+simulator. The full grammar is in [docs/SYNTAX.md](docs/SYNTAX.md), and the
+device paths behind it, with the firmware they were verified on, are in
 [docs/PATHS.md](docs/PATHS.md).
 
 ## Two things worth knowing

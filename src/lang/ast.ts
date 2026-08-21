@@ -23,6 +23,22 @@ export type FunctionName =
   | 'Label'
   | 'Select'
   | 'Clear'
+  | 'Set'
+
+/** A number the operator typed, and whether they meant it as a proportion. */
+export interface Amount {
+  readonly value: number
+  readonly percent: boolean
+}
+
+/** What a `Set` is assigning. */
+export interface Assignment {
+  readonly source?: { readonly family: 'live' | 'still' | 'none' | 'colour'; readonly n?: number }
+  /** Horizontal then vertical. A single value given means both axes. */
+  readonly size?: readonly Amount[]
+  readonly position?: readonly Amount[]
+  readonly opacity?: Amount
+}
 
 /** The screens and auxes a command addresses, before defaults are applied. */
 export interface Scope {
@@ -48,6 +64,7 @@ export interface Command {
   readonly mode?: PresetMode
   readonly label?: string
   readonly filter?: Filter
+  readonly set?: Assignment
 }
 
 export interface ParseError {

@@ -10,6 +10,8 @@ import { resolveKeyword, type Keyword } from './keywords.ts'
 export type Token =
   | { kind: 'keyword'; keyword: Keyword; text: string; start: number; end: number }
   | { kind: 'number'; value: number; text: string; start: number; end: number }
+  /** `50%` — a proportion of the screen canvas, resolved at compile time. */
+  | { kind: 'percent'; value: number; text: string; start: number; end: number }
   | { kind: 'string'; value: string; text: string; start: number; end: number }
   | { kind: 'plus'; text: string; start: number; end: number }
   | { kind: 'minus'; text: string; start: number; end: number }
@@ -83,8 +85,19 @@ export function lex(input: string): LexResult {
     if (isDigit(c)) {
       const start = i
       while (i < input.length && isDigit(input[i])) i++
-      const text = input.slice(start, i)
-      tokens.push({ kind: 'number', value: Number(text), text, start, end: i })
+      // A decimal point is only part of a number when a digit follows it, so
+      // "50." at the end of a sentence is still the number 50.
+      if (input[i] === '.' && isDigit(input[i + 1])) {
+        i++
+        while (i < input.length && isDigit(input[i])) i++
+      }
+      const digits = input.slice(start, i)
+      if (input[i] === '%') {
+        i++
+        tokens.push({ kind: 'percent', value: Number(digits), text: input.slice(start, i), start, end: i })
+        continue
+      }
+      tokens.push({ kind: 'number', value: Number(digits), text: digits, start, end: i })
       continue
     }
 

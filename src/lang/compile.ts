@@ -8,7 +8,7 @@
  * WebSocket, an offline path listing, or an exported macro.
  */
 
-import type { Command, Filter, Scope } from './ast.ts'
+import type { Amount, Assignment, Command, Filter, Scope } from './ast.ts'
 import {
   CATEGORIES,
   DIMS,
@@ -27,6 +27,12 @@ import {
   screenMemoryLoad,
   screenMemorySave,
   takePath,
+  layerSource,
+  layerPosition,
+  layerOpacity,
+  LAYER,
+  SOURCES,
+  type PresetBuffer,
   type BankKind,
   type PresetMode,
   type Target,
@@ -74,9 +80,30 @@ export interface Selection {
 const DEFAULT_RECALL_MODE: PresetMode = 'PREVIEW'
 const DEFAULT_STORE_MODE: PresetMode = 'PROGRAM'
 
+/**
+ * What the compiler needs to know about the device, and cannot work out alone.
+ *
+ * Live layer parameters are addressed by buffer (`A`/`B`/`C`), while a command
+ * says "preview" or "program" — names for whichever buffer is pending or live
+ * right now. And a percentage is a percentage *of the canvas*, whose size the
+ * device knows and a command does not.
+ *
+ * Both are answered from device state when it is known. When it is not, the
+ * command is refused with the reason rather than guessed at, because guessing
+ * would put a layer somewhere the operator did not ask for.
+ */
+export interface DeviceFacts {
+  /** Which buffer a preset mode names on this screen, if known. */
+  buffer(target: Target, mode: PresetMode): PresetBuffer | undefined
+  /** The screen's canvas in pixels, if known. */
+  canvas(target: Target): { readonly w: number; readonly h: number } | undefined
+}
+
 export interface CompileContext {
   /** The sticky scope, used when a command names no target of its own. */
   readonly selection?: Selection
+  /** Live device state, needed only by `Set`. */
+  readonly facts?: DeviceFacts
 }
 
 export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
@@ -257,6 +284,46 @@ export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
     }
 
     // -----------------------------------------------------------------------
+    case 'Set': {
+      if (!cmd.set) return fail('Set needs something to set — Source, Size, Position or Opacity')
+      if (targets.length === 0) {
+        return fail('Set needs a Screen or Aux, or a sticky scope to inherit')
+      }
+      if (!layers) {
+        return fail('Set needs a Layer — these are layer parameters, not screen ones')
+      }
+      // Live parameters are per-buffer, and preview is the safe default here
+      // for the same reason it is on a recall: an under-specified command must
+      // not change what is on air.
+      const mode = cmd.mode ?? 'PREVIEW'
+      const facts = ctx.facts
+      if (!facts) {
+        return fail('Set needs a live connection — layer parameters are addressed per buffer, which depends on the current take state')
+      }
+
+      const ops: Op[] = []
+      for (const t of targets) {
+        const buffer = facts.buffer(t, mode)
+        if (!buffer) {
+          return fail(
+            `Cannot tell which buffer is ${describeMode(mode)} on ${describeTarget(t)} yet — the device has not reported its take state`,
+          )
+        }
+        const canvas = facts.canvas(t)
+        for (const l of layers) {
+          const err = assignmentOps(ops, cmd.set, t, buffer, l, canvas)
+          if (err) return fail(err)
+        }
+      }
+
+      return {
+        ok: true,
+        ops,
+        summary: `Set ${describeAssignment(cmd.set)} on ${targets.map(describeTarget).join(', ')} layer ${layers.join(', ')} ${describeMode(mode)}`,
+      }
+    }
+
+    // -----------------------------------------------------------------------
     case 'Delete': {
       if (cmd.memory === undefined) return fail('Delete needs a Memory number')
       const bank = bankOf(cmd.scope, layers)
@@ -416,6 +483,109 @@ function checkSlot(bank: BankKind, slot: number): string | undefined {
     return `Memory ${slot} is out of range — ${bank} memories are ${min} to ${max}`
   }
   return undefined
+}
+
+/**
+ * Turn one assignment into writes, resolving percentages against the canvas.
+ *
+ * Position is anchored on the layer's centre — the device's default anchor is
+ * `MIDDLE_CENTER` — so "a third of the way across" means the centre sits at a
+ * third of the canvas, which is what someone asking for it means.
+ */
+function assignmentOps(
+  ops: Op[],
+  set: Assignment,
+  t: Target,
+  buffer: PresetBuffer,
+  layer: number | 'NATIVE',
+  canvas: { readonly w: number; readonly h: number } | undefined,
+): string | undefined {
+  const px = (a: Amount, axis: 'w' | 'h', what: string): number | string => {
+    if (!a.percent) return Math.round(a.value)
+    if (!canvas) {
+      return `${what} was given as a percentage, but the canvas size of ${describeTarget(t)} is not known yet — give it in pixels, or connect and let the device report its size`
+    }
+    return Math.round((a.value / 100) * canvas[axis])
+  }
+
+  if (set.source) {
+    const value = sourceValue(set.source)
+    if (typeof value === 'string' && value.startsWith('!')) return value.slice(1)
+    ops.push({
+      path: layerSource(t, buffer, layer),
+      value,
+      describe: `Source ${value} on ${describeTarget(t)} layer ${layer}`,
+    })
+  }
+
+  if (set.size) {
+    const [hAmt, vAmt] = set.size.length === 1 ? [set.size[0], set.size[0]] : set.size
+    const h = px(hAmt, 'w', 'Size')
+    if (typeof h === 'string') return h
+    const v = px(vAmt, 'h', 'Size')
+    if (typeof v === 'string') return v
+    ops.push(
+      { path: layerPosition(t, buffer, layer, 'sizeH'), value: h, describe: `Width ${h}px` },
+      { path: layerPosition(t, buffer, layer, 'sizeV'), value: v, describe: `Height ${v}px` },
+    )
+  }
+
+  if (set.position) {
+    const [hAmt, vAmt] = set.position.length === 1 ? [set.position[0], set.position[0]] : set.position
+    const h = px(hAmt, 'w', 'Position')
+    if (typeof h === 'string') return h
+    const v = px(vAmt, 'h', 'Position')
+    if (typeof v === 'string') return v
+    ops.push(
+      { path: layerPosition(t, buffer, layer, 'posH'), value: h, describe: `X ${h}px (layer centre)` },
+      { path: layerPosition(t, buffer, layer, 'posV'), value: v, describe: `Y ${v}px (layer centre)` },
+    )
+  }
+
+  if (set.opacity) {
+    // Opacity is 0-256 on this device, not 0-100. A percentage is scaled to
+    // that; a plain number is taken as the device's own units.
+    const raw = set.opacity.percent
+      ? Math.round((set.opacity.value / 100) * LAYER.opacityMax)
+      : Math.round(set.opacity.value)
+    if (raw < 0 || raw > LAYER.opacityMax) {
+      return `Opacity ${raw} is out of range — the device's scale is 0 to ${LAYER.opacityMax}`
+    }
+    ops.push({
+      path: layerOpacity(t, buffer, layer),
+      value: raw,
+      describe: `Opacity ${raw} of ${LAYER.opacityMax}`,
+    })
+  }
+
+  return undefined
+}
+
+/** An error is returned as a string prefixed with `!`, to keep one return type. */
+function sourceValue(src: NonNullable<Assignment['source']>): string {
+  switch (src.family) {
+    case 'none':
+      return 'NONE'
+    case 'colour':
+      return 'COLOR'
+    case 'still':
+      return src.n !== undefined && src.n >= 1 && src.n <= SOURCES.still
+        ? `STILL_${src.n}`
+        : `!Still ${src.n} is out of range — stills are 1 to ${SOURCES.still}`
+    case 'live':
+      return src.n !== undefined && src.n >= 1 && src.n <= SOURCES.live
+        ? `LIVE_${src.n}`
+        : `!Source ${src.n} is out of range — live inputs are 1 to ${SOURCES.live}`
+  }
+}
+
+function describeAssignment(set: Assignment): string {
+  const bits: string[] = []
+  if (set.source) bits.push('source')
+  if (set.size) bits.push('size')
+  if (set.position) bits.push('position')
+  if (set.opacity) bits.push('opacity')
+  return bits.join(' + ')
 }
 
 const describeMode = (m: PresetMode) => (m === 'PREVIEW' ? 'Preview' : 'Program')

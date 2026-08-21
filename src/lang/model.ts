@@ -65,6 +65,33 @@ export type Category = (typeof CATEGORIES)[number]
 /** Where a master store draws its values from. */
 export type SaveMode = 'SAVE_FROM_PGM' | 'SAVE_FROM_PVW'
 
+/**
+ * The three fixed preset buffers.
+ *
+ * Live layer parameters are addressed by these, **not** by preview/program —
+ * unlike the memory banks, which use `PREVIEW`/`PROGRAM`. Preview and program
+ * are names for whichever buffer is pending or live at the moment, so reaching
+ * a live parameter means resolving the name to a letter first.
+ */
+export type PresetBuffer = 'A' | 'B' | 'C'
+
+/** How many of each source family a LivePremier offers. */
+export const SOURCES = {
+  live: 64,
+  still: 48,
+  screen: 24,
+  native: 8,
+  share: 32,
+} as const
+
+/** Layer parameter limits, in the units the device actually uses. */
+export const LAYER = {
+  /** Opacity is 0–256, not 0–100. */
+  opacityMax: 256,
+  /** Position and size are in pixels, anchored on the layer's centre. */
+  anchorDefault: 'MIDDLE_CENTER',
+} as const
+
 // ---------------------------------------------------------------------------
 // Keys
 // ---------------------------------------------------------------------------
@@ -202,6 +229,70 @@ export const memoryDelete = (bank: BankKind, slot: number): Path =>
 /** Whether a memory slot holds anything. */
 export const memoryIsValid = (bank: BankKind, slot: number): Path =>
   bankRoot(bank).item('bank', slot).node('status').prop('isValid')
+
+// ---------------------------------------------------------------------------
+// Live layer parameters
+// ---------------------------------------------------------------------------
+
+/**
+ * Note the buffer key. These paths take `A`/`B`/`C`, and a command that says
+ * "preview" has to be resolved against the current take state before it can
+ * name one — see `bufferForMode`.
+ */
+const layerRoot = (t: Target, buffer: PresetBuffer, layer: number | 'NATIVE'): Path =>
+  DeviceObject.item(targetCollection(t), targetKey(t))
+    .item('preset', buffer)
+    .item('layer', layerKey(layer))
+
+/** Which input a layer is showing. */
+export const layerSource = (t: Target, buffer: PresetBuffer, layer: number | 'NATIVE'): Path =>
+  layerRoot(t, buffer, layer).node('source').prop('inputNum')
+
+export type PositionProp = 'posH' | 'posV' | 'sizeH' | 'sizeV' | 'anchor'
+
+/** Where a layer is and how big, in pixels, anchored on its centre. */
+export const layerPosition = (
+  t: Target,
+  buffer: PresetBuffer,
+  layer: number | 'NATIVE',
+  prop: PositionProp,
+): Path => layerRoot(t, buffer, layer).node('position').prop(prop)
+
+/** Layer opacity, 0–256. */
+export const layerOpacity = (t: Target, buffer: PresetBuffer, layer: number | 'NATIVE'): Path =>
+  layerRoot(t, buffer, layer).node('opacity').prop('opacity')
+
+/**
+ * Resolve a preset mode to the buffer it currently names.
+ *
+ * This is the vendor UI's own rule. `transition` says where the group is, and
+ * `presetUp`/`presetDown` say which buffer sits at each end — so program is
+ * whichever end is currently up, and preview is the other. A take swaps them,
+ * and the mapping differs between screens on the same device.
+ */
+export function bufferForMode(
+  mode: PresetMode,
+  transition: string,
+  presetUp: PresetBuffer,
+  presetDown: PresetBuffer,
+): PresetBuffer {
+  const atUp = transition === 'AT_UP' || transition === 'EFFECT_FROM_UP'
+  return mode === 'PROGRAM' ? (atUp ? presetUp : presetDown) : atUp ? presetDown : presetUp
+}
+
+// ---------------------------------------------------------------------------
+// Screen facts
+// ---------------------------------------------------------------------------
+
+/** The screen's canvas in pixels — what a percentage is a percentage of. */
+export const screenCanvas = (t: Target, axis: 'sizeH' | 'sizeV'): Path =>
+  DeviceObject.item(targetCollection(t), targetKey(t)).node('status').node('size').prop(axis)
+
+export const groupTransition = (t: Target): Path =>
+  DeviceObject.item('screenAuxGroup', targetKey(t)).node('status').prop('transition')
+
+export const groupPreset = (t: Target, end: 'presetUp' | 'presetDown'): Path =>
+  DeviceObject.item('screenAuxGroup', targetKey(t)).node('control').prop(end)
 
 // ---------------------------------------------------------------------------
 // Feedback paths

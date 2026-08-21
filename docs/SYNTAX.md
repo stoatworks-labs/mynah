@@ -106,6 +106,49 @@ it does not do that resolution — worth knowing before adding a status view.
 | `Label` | `Lab` | Name a memory |
 | `Select` | `Se` | Set the sticky scope |
 | `Clear` | `Cl` | Clear the command line, then the scope |
+| `Set` | — | Assign a live layer parameter |
+
+`Set` has no abbreviation: `S`, `Se` and `Sel` are taken by Screen, Select and
+friends, and `Set` is already three letters.
+
+### Live layer attributes
+
+These follow `Set`, and are the same words used as record-mask categories
+inside an `If` — told apart by where they appear.
+
+| Keyword | Short | Value |
+|---|---|---|
+| `Source` | `So` | a live input number, or `Still <n>`, `Colour`, `None` |
+| `Size` | `Si` | one or two amounts — pixels or a percentage of the canvas |
+| `Position` | `Po` | one or two amounts; this is the layer's **centre** |
+| `Opacity` | `O` | an amount; the device's scale is **0–256**, not 0–100 |
+
+`At` may appear before any value, and a command may lead with the object, both
+borrowed from grandMA3 and Titan. These are identical:
+
+```
+Set Screen 3 Layer 2 Source 1
+Set Screen 3 Layer 2 Source At 1
+Screen 3 Layer 2 Source At 1
+```
+
+Source families: `LIVE_1`–`LIVE_64`, `STILL_1`–`STILL_48`, plus `COLOR` and
+`NONE`.
+
+### Live parameters are addressed by BUFFER
+
+This is the one place the device's model shows through. Memory recall and store
+paths take `PREVIEW`/`PROGRAM`; **live layer paths take `A`/`B`/`C`**. Those
+letters name fixed buffers, and preview/program are names for whichever is
+pending or live at this moment — a mapping that differs between screens and
+that a take swaps.
+
+Mynah resolves it using the device's own rule, from the take state the device
+reports. If the device has not reported it, the command is **refused with that
+reason** rather than guessed at.
+
+A percentage is likewise a percentage of the canvas, whose size only the device
+knows. Pixels always work; percentages need a connection.
 
 ---
 

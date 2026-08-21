@@ -111,6 +111,33 @@ export class SimDevice {
     this.load(this.screens[1], this.screens[1].live, 3)
   }
 
+  /**
+   * What a device reports about itself that a command cannot work out alone:
+   * the canvas size, and which buffer sits at each end of the transition.
+   *
+   * Emitted on connect so the app learns these the same way it would from real
+   * hardware — through pushes — rather than through a special case for the
+   * simulator.
+   */
+  facts(): Push[] {
+    const out: Push[] = []
+    for (const s of this.screens) {
+      out.push(
+        { path: `device/screenList/items/${s.key}/status/size/pp/sizeH`.split('/'), value: s.width },
+        { path: `device/screenList/items/${s.key}/status/size/pp/sizeV`.split('/'), value: s.height },
+        // A take swaps which buffer is live, so `live` is reported as whichever
+        // end is currently up, with the transition sitting at that end.
+        { path: `device/screenAuxGroupList/items/${s.key}/status/pp/transition`.split('/'), value: 'AT_UP' },
+        { path: `device/screenAuxGroupList/items/${s.key}/control/pp/presetUp`.split('/'), value: s.live },
+        {
+          path: `device/screenAuxGroupList/items/${s.key}/control/pp/presetDown`.split('/'),
+          value: s.live === 'A' ? 'B' : 'A',
+        },
+      )
+    }
+    return out
+  }
+
   screen(key: string): Screen | undefined {
     return this.screens.find((s) => s.key === key)
   }
@@ -235,11 +262,50 @@ export class SimDevice {
       return pushes
     }
 
+    // Live layer parameters, addressed by buffer.
+    m = /^device\/screenList\/items\/(S\d+)\/presetList\/items\/([ABC])\/layerList\/items\/(\w+)\/(source\/pp\/inputNum|position\/pp\/(posH|posV|sizeH|sizeV)|opacity\/pp\/opacity)$/.exec(p)
+    if (m) {
+      const [, key, buffer, layerKey] = m
+      const s = this.screen(key)
+      if (s) {
+        const layer = layerKey === 'NATIVE' ? 0 : Number(layerKey)
+        const content = s.content[buffer as Buffer]
+        const layers = content.layers.map((l) => ({ ...l }))
+        let target = layers.find((l) => l.layer === layer)
+        if (!target) {
+          // Setting a parameter on a layer that is not in the look yet brings
+          // it into existence, centred and full size, as the device would.
+          target = { layer, source: 'IN — none', x: 0, y: 0, w: 1, h: 1 }
+          layers.push(target)
+          layers.sort((a, b) => a.layer - b.layer)
+        }
+        const t = target as { layer: number; source: string; x: number; y: number; w: number; h: number }
+        if (p.endsWith('source/pp/inputNum')) t.source = String(value)
+        else if (p.endsWith('sizeH')) t.w = Number(value) / s.width
+        else if (p.endsWith('sizeV')) t.h = Number(value) / s.height
+        // Position is the layer's CENTRE, so the drawn box is offset by half.
+        else if (p.endsWith('posH')) t.x = Number(value) / s.width - t.w / 2
+        else if (p.endsWith('posV')) t.y = Number(value) / s.height - t.h / 2
+        s.content = { ...s.content, [buffer as Buffer]: { ...content, layers } }
+      }
+      return pushes
+    }
+
     // screenAuxGroupList/items/S/control/pp/xTake
     m = /^device\/screenAuxGroupList\/items\/(S\d+)\/control\/pp\/xTake$/.exec(p)
     if (m && value === true) {
       const s = this.screen(m[1])
-      if (s) s.live = s.live === 'A' ? 'B' : 'A'
+      if (s) {
+        s.live = s.live === 'A' ? 'B' : 'A'
+        pushes.push(
+          { path: `device/screenAuxGroupList/items/${s.key}/control/pp/presetUp`.split('/'), value: s.live, after: 20 },
+          {
+            path: `device/screenAuxGroupList/items/${s.key}/control/pp/presetDown`.split('/'),
+            value: s.live === 'A' ? 'B' : 'A',
+            after: 20,
+          },
+        )
+      }
       return pushes
     }
 

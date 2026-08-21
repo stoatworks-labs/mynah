@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { compile, type Selection } from './lang/compile.ts'
+import { bufferForMode } from './lang/model.ts'
+import { compile, type DeviceFacts, type Selection } from './lang/compile.ts'
 import { completions, keywordTable } from './lang/keywords.ts'
 import { parse } from './lang/parser.ts'
 import { VERIFIED_FIRMWARE } from './lang/model.ts'
@@ -101,6 +102,28 @@ export function App() {
     if (targets.length > 0) setSelection((prev) => ({ targets, layers: prev?.layers }))
   }, [followVendor, link.remoteSelection])
 
+  /**
+   * Answer the compiler's two questions from what the device has reported.
+   *
+   * Both return undefined when unknown, and the compiler refuses the command
+   * with the reason rather than guessing — putting a layer somewhere nobody
+   * asked for is worse than saying "not yet".
+   */
+  const facts = useMemo<DeviceFacts>(
+    () => ({
+      buffer: (t, mode) => {
+        const f = link.facts.get(t.kind === 'screen' ? `S${t.n}` : `A${t.n}`)
+        if (!f?.transition || !f.presetUp || !f.presetDown) return undefined
+        return bufferForMode(mode, f.transition, f.presetUp as 'A' | 'B' | 'C', f.presetDown as 'A' | 'B' | 'C')
+      },
+      canvas: (t) => {
+        const f = link.facts.get(t.kind === 'screen' ? `S${t.n}` : `A${t.n}`)
+        return f?.canvasW && f.canvasH ? { w: f.canvasW, h: f.canvasH } : undefined
+      },
+    }),
+    [link.facts],
+  )
+
   // Live parse of whatever is typed, for the preview strip under the line.
   const preview = useMemo(() => {
     const trimmed = input.trim()
@@ -109,7 +132,7 @@ export function App() {
     if (!parsed.ok) {
       return { ok: false as const, message: parsed.errors[0].message }
     }
-    const compiled = compile(parsed.command, { selection })
+    const compiled = compile(parsed.command, { selection, facts })
     if (!compiled.ok) {
       return { ok: false as const, message: compiled.errors[0].message }
     }
@@ -122,7 +145,7 @@ export function App() {
       selection: compiled.selection,
       warning: empty ? `Memory ${compiled.slot} is empty — the device will accept this and do nothing` : undefined,
     }
-  }, [input, selection, slotEmpty])
+  }, [input, selection, slotEmpty, facts])
 
   const history = useMemo(() => link.log.map((e) => e.input), [link.log])
 
@@ -142,7 +165,7 @@ export function App() {
     const parsed = parse(trimmed)
     if (!parsed.ok) return
 
-    const compiled = compile(parsed.command, { selection })
+    const compiled = compile(parsed.command, { selection, facts })
     if (!compiled.ok) return
 
     if (parsed.command.fn === 'Clear') {
@@ -173,7 +196,7 @@ export function App() {
       parsed.command.fn === 'Recall' ? compiled.slot : undefined,
     )
     setInput('')
-  }, [input, selection, link])
+  }, [input, selection, link, facts])
 
   /** A hardware key runs a command string exactly as if it were typed. */
   const runCommand = useCallback(
@@ -183,7 +206,7 @@ export function App() {
         link.note(command, `Rejected: ${parsed.errors[0].message}`)
         return
       }
-      const compiled = compile(parsed.command, { selection })
+      const compiled = compile(parsed.command, { selection, facts })
       if (!compiled.ok) {
         link.note(command, `Rejected: ${compiled.errors[0].message}`)
         return
@@ -200,7 +223,7 @@ export function App() {
         parsed.command.fn === 'Recall' ? compiled.slot : undefined,
       )
     },
-    [selection, link],
+    [selection, link, facts],
   )
 
   const xkeys = useXKeys(runCommand)
