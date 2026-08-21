@@ -26,3 +26,20 @@ updates:
       npm-minor-and-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+      # React and its type packages must move together, majors included.
+      # Ungrouped, Dependabot raises the runtime bump and the @types bump as
+      # separate PRs, and each one is internally inconsistent: @types/react@19
+      # against @types/react-dom@18 fails `npm ci` on a peer conflict before a
+      # single test runs. That reads as "React 19 breaks the app" when nothing
+      # has actually been tested. Grouping them produces one PR that CI can
+      # give a real answer about.
+      #
+      # This is a group, not an `ignore` — see the note above; an ignore would
+      # also suppress security updates for React, which is the PR worth having.
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+        update-types: ["major", "minor", "patch"]
