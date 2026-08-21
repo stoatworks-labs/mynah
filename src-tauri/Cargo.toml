@@ -1,6 +1,6 @@
 [package]
 name = "mynah"
-version = "1.3.2"
+version = "1.3.3"
 description = "A lighting-desk command line for Analog Way LivePremier switchers"
 authors = ["Allan Sargeant"]
 edition = "2021"
