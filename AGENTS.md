@@ -61,6 +61,25 @@ prefix from the whole table. `Mask` has no abbreviation because `Master` shares
 you add a keyword and that test fails, the table changed under someone, which is
 the point.
 
+## The support footer
+
+Vendored at `public/support-footer.js` from `stoatworks-backend/support-footer`
+— **never edit the copy here**; edit it there and re-run that repo's
+`scripts/sync-support-footer.sh`. It is wired up in `index.html` with a
+**classic, deferred** script tag, not a module: it reads its config off
+`document.currentScript`, which is null inside a module.
+
+Two things that are easy to get wrong:
+
+- **`data-version` is substituted at build time** by a `transformIndexHtml`
+  hook in `vite.config.ts`. Vite's `define` only reaches JavaScript — it does
+  not touch index.html — so the placeholder needs the hook.
+- **Any CSP must list the intake origin in `connect-src`**, or the feedback
+  button is a button that silently does nothing. That means `public/_headers`
+  for the web build *and* `src-tauri/tauri.conf.json` for the desktop one. The
+  desktop CSP was missed first time round: the footer rendered and its report
+  would have been refused.
+
 ## Transport
 
 The browser cannot open TCP 10606, so AWJ is unreachable from a page — the tool
