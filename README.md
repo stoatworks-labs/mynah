@@ -72,8 +72,14 @@ selects it in both.
 Keyboard, X-Keys and Stream Deck all run the same grammar — see
 [docs/DEVICES.md](docs/DEVICES.md). The short version: an X-Keys panel is
 opened directly from the browser over WebHID, and a Stream Deck cannot be,
-because Elgato's software holds it — so that one is a plugin, in
-[`streamdeck/`](streamdeck/).
+because Elgato's software holds it.
+
+For a Stream Deck there are two routes. The bundled Elgato plugin in
+[`streamdeck/`](streamdeck/), or — better, if you already run Companion —
+**[companion-module-mynah](https://github.com/stoatworks-labs/companion-module-mynah)**,
+which brings pages, variables, feedbacks and a preset library of around a
+hundred ready-made buttons. Both bundle the compiler from `src/lang/` rather
+than reimplementing the grammar.
 
 ## Running it
 
@@ -88,6 +94,7 @@ Then point it at a device, or at the LivePremier simulator on `127.0.0.1:3000`.
 npm test                  # the grammar and the store scanner
 npm run build             # static bundle in dist/
 npm run build:streamdeck  # the Stream Deck plugin
+npm run build:lang        # the language core alone, for other consumers
 ```
 
 ## Status

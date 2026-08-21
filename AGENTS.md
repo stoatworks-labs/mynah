@@ -27,6 +27,10 @@ src/link/
   banks.ts         streaming extractor for the 124 MB store snapshot
 src/hid/
   useXKeys.ts      WebHID, X-Keys only
+src/lang/index.ts  the PUBLIC surface of the language, for consumers outside
+                   this repo. `npm run build:lang` bundles it to dist-lang/,
+                   which companion-module-mynah vendors — so the grammar is
+                   never transcribed twice.
 streamdeck/        the plugin: same lang core, its own link, Elgato plumbing
 docs/SYNTAX.md     the grammar, and why the defaults are what they are
 docs/PATHS.md      every device path, firmware-tagged, with the traps

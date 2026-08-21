@@ -13,7 +13,8 @@
     "serve:dist": "python3 scripts/serve-dist.py --dir dist --port 4321",
     "test": "vitest run",
     "test:watch": "vitest",
-    "build:streamdeck": "MYNAH_SD_ENTRY=plugin vite build --config streamdeck/vite.config.ts && MYNAH_SD_ENTRY=inspector vite build --config streamdeck/vite.config.ts"
+    "build:streamdeck": "MYNAH_SD_ENTRY=plugin vite build --config streamdeck/vite.config.ts && MYNAH_SD_ENTRY=inspector vite build --config streamdeck/vite.config.ts",
+    "build:lang": "vite build --config vite.lang.config.ts"
   },
   "dependencies": {
     "react": "^18.3.1",
