@@ -13,6 +13,8 @@
 import type {
   Amount,
   Assignment,
+  AudioCommand,
+  AudioEndpoint,
   Command,
   Filter,
   FunctionName,
@@ -21,7 +23,7 @@ import type {
   ParseResult,
   Scope,
 } from './ast.ts'
-import { CATEGORIES, DIMS, type Category } from './model.ts'
+import { AUDIO, CATEGORIES, DIMS, type Category } from './model.ts'
 import { lex, type Token } from './lexer.ts'
 
 const CATEGORY_BY_KEYWORD: Record<string, Category> = {
@@ -436,6 +438,82 @@ class Parser {
   // Command
   // -------------------------------------------------------------------------
 
+  // -------------------------------------------------------------------------
+  // Audio routing
+  // -------------------------------------------------------------------------
+
+  /**
+   * One end of an audio route.
+   *
+   *   Input 3 Channel 1 Thru 4
+   *   Output 12 Channel 2
+   *   Dante 11
+   *   None
+   *
+   * Dante takes no `Channel`, because a flat Dante channel number *is* the
+   * whole address — the eight-block grouping the device uses underneath is a
+   * detail of the object model and nobody speaks in it.
+   */
+  private parseAudioEndpoint(what: string): AudioEndpoint | undefined {
+    if (this.eatKeyword('None')) return { kind: 'none' }
+
+    const units = [
+      { word: 'Input', kind: 'input', dim: AUDIO.input },
+      { word: 'Output', kind: 'output', dim: AUDIO.output },
+      { word: 'Multiviewer', kind: 'multiviewer', dim: AUDIO.multiviewer },
+      { word: 'Dante', kind: 'dante', dim: AUDIO.dante },
+    ] as const
+
+    for (const u of units) {
+      if (!this.eatKeyword(u.word)) continue
+      const unit = this.parseRange(u.dim.min, u.dim.max, u.word.toLowerCase())
+      if (!unit) return undefined
+
+      if (u.kind === 'dante') {
+        if (this.atKeyword('Channel')) {
+          this.error('Dante is numbered straight through — say Dante 11, not Dante 2 Channel 3', this.peek())
+          return undefined
+        }
+        return { kind: u.kind, unit }
+      }
+
+      let channels: NumberSet | undefined
+      if (this.eatKeyword('Channel')) {
+        channels = this.parseRange(AUDIO.channel.min, AUDIO.channel.max, 'channel')
+        if (!channels) return undefined
+      }
+      return { kind: u.kind, unit, channels }
+    }
+
+    this.error(`Expected ${what} — Input, Output, Multiviewer, Dante or None`, this.peek())
+    return undefined
+  }
+
+  /** `Audio Patch <source> To <destination>` | `Audio (Mute|Unmute) <thing>`. */
+  private parseAudio(): AudioCommand | undefined {
+    if (this.eatKeyword('Patch')) {
+      const from = this.parseAudioEndpoint('a source to patch')
+      if (!from) return undefined
+      /* `At` and `To` are the same word to the parser. Neither is required —
+         "Patch Input 1 Channel 1 Dante 5" parses too — but one of them is
+         what makes the line read as a sentence. */
+      this.eatKeyword('At') || this.eatKeyword('To')
+      const to = this.parseAudioEndpoint('a destination to patch it to')
+      if (!to) return undefined
+      return { action: 'PATCH', from, to }
+    }
+
+    for (const [word, action] of [['Mute', 'MUTE'], ['Unmute', 'UNMUTE']] as const) {
+      if (!this.eatKeyword(word)) continue
+      const to = this.parseAudioEndpoint(`something to ${word.toLowerCase()}`)
+      if (!to) return undefined
+      return { action, to }
+    }
+
+    this.error('Audio takes Patch, Mute or Unmute', this.peek())
+    return undefined
+  }
+
   parseCommand(): Command | undefined {
     const head = this.peek()
     if (!head) {
@@ -456,6 +534,31 @@ class Parser {
     } else {
       this.error(`A command starts with a function — ${FUNCTIONS.join(', ')}`, head)
       return undefined
+    }
+
+    /*
+     * `Audio` takes over the rest of the line.
+     *
+     * The routing matrix has nothing to do with screens, layers or memories,
+     * so it gets its own sub-grammar rather than more optional fields on the
+     * one that addresses them. Parsed here, before the general loop, because
+     * every word after it belongs to that grammar and not to this one.
+     */
+    if (this.atKeyword('Audio')) {
+      const at = this.peek()
+      this.pos++
+      if (fn !== 'Set') {
+        this.error(`Audio routing is set, not ${fn.toLowerCase()}ed — say "Set Audio …"`, at)
+        return undefined
+      }
+      const audio = this.parseAudio()
+      if (!audio) return undefined
+      const extra = this.peek()
+      if (extra) {
+        this.error(`Unexpected ${describe(extra)} after the audio command`, extra)
+        return undefined
+      }
+      return { fn, scope: {}, audio }
     }
 
     const scope: Mutable<Scope> = {}

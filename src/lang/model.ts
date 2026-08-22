@@ -346,3 +346,102 @@ export const presetUnmodified = (t: Target, buffer: 'A' | 'B' | 'C'): Path =>
     .item(targetCollection(t), targetKey(t))
     .item('preset', buffer)
     .prop('isNotModified')
+
+// ---------------------------------------------------------------------------
+// Audio matrix
+// ---------------------------------------------------------------------------
+
+/**
+ * The audio routing matrix, as the device models it.
+ *
+ * `device/audio/control/deviceList/items/<frame>` holds two collections:
+ *
+ * - **`rxList`** — the receivers, which are *sources*. Keys are
+ *   `INPUT_<1-64>_CHANNEL_<1-8>`, `DANTE_<1-8>_CHANNEL_<1-8>`, and `NONE`.
+ *   Each carries one writable property, `mute`.
+ * - **`txList`** — the transmitters, which are *destinations*. Keys are
+ *   `OUTPUT_<1-24>`, `DANTE_<1-8>` and `MVW_<1-2>`, each with a `channelList`
+ *   of eight. A channel carries `source` (the name of an rx), `mute` and
+ *   `sine`.
+ *
+ * So a patch is a single write: put the source's key into the destination
+ * channel's `source`. There is no separate crosspoint object.
+ *
+ * Every figure here was counted off a running LivePremier's own store rather
+ * than assumed — inputs go to **64**, not 32, and it is 8 channels each.
+ *
+ * ## Dante is addressed as a flat channel
+ *
+ * The wire groups Dante into eight blocks of eight, in both directions. Nobody
+ * says "Dante block two, channel three"; they say "Dante 11". So the grammar
+ * takes a flat 1-64 and this file does the division. The grouping is a detail
+ * of the object model and stops here.
+ */
+export const AUDIO = {
+  /** Which frame's matrix. A linked system has one per frame. */
+  frame: { min: 1, max: 4 },
+  input: { min: 1, max: 64 },
+  output: { min: 1, max: 24 },
+  multiviewer: { min: 1, max: 2 },
+  /** Channels within one input, output or multiviewer. */
+  channel: { min: 1, max: 8 },
+  /** Dante, flattened: 8 blocks of 8, the same both ways. */
+  dante: { min: 1, max: 64 },
+} as const
+
+const DANTE_BLOCK = 8
+
+/** `11` → `{ block: 2, channel: 3 }`. */
+export function danteSplit(flat: number): { block: number; channel: number } {
+  return {
+    block: Math.floor((flat - 1) / DANTE_BLOCK) + 1,
+    channel: ((flat - 1) % DANTE_BLOCK) + 1,
+  }
+}
+
+/** The name of a source, as `txList` expects to be given it. */
+export function audioSourceKey(
+  ep: { kind: 'input' | 'dante' | 'none'; unit?: number; channel?: number },
+): string {
+  switch (ep.kind) {
+    case 'none':
+      return 'NONE'
+    case 'input':
+      return `INPUT_${ep.unit}_CHANNEL_${ep.channel}`
+    case 'dante': {
+      const { block, channel } = danteSplit(ep.unit as number)
+      return `DANTE_${block}_CHANNEL_${channel}`
+    }
+  }
+}
+
+/** A destination's collection key and channel within it. */
+export function audioDestination(
+  ep: { kind: 'output' | 'dante' | 'multiviewer'; unit: number; channel?: number },
+): { key: string; channel: number } {
+  switch (ep.kind) {
+    case 'output':
+      return { key: `OUTPUT_${ep.unit}`, channel: ep.channel as number }
+    case 'multiviewer':
+      return { key: `MVW_${ep.unit}`, channel: ep.channel as number }
+    case 'dante': {
+      const { block, channel } = danteSplit(ep.unit)
+      return { key: `DANTE_${block}`, channel }
+    }
+  }
+}
+
+const audioFrame = (frame: number): Path =>
+  DeviceObject.node('audio').node('control').item('device', frame)
+
+/** A destination channel's writable properties. */
+export const audioTxProp = (
+  frame: number,
+  key: string,
+  channel: number,
+  prop: 'source' | 'mute' | 'sine',
+): Path => audioFrame(frame).item('tx', key).item('channel', channel).node('control').prop(prop)
+
+/** A source's own mute, which silences it into every destination at once. */
+export const audioRxMute = (frame: number, key: string): Path =>
+  audioFrame(frame).item('rx', key).node('control').prop('mute')

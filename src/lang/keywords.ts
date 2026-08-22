@@ -60,6 +60,22 @@ export const KEYWORDS: readonly Keyword[] = [
   kw('None', 'object'),
   kw('Colour', 'object'),
 
+  // Audio routing. `Audio` introduces a sub-grammar of its own after `Set`.
+  //
+  // ⚠️ Adding `Audio` lengthens `Aux` from `Au` to `Aux`, because the short
+  // form of a word is a property of the whole table and the two now share a
+  // prefix. That is the documented cost of prefix abbreviation, and it is
+  // worth paying: audio routing is a whole half of the device that the command
+  // line could not reach at all.
+  kw('Audio', 'object'),
+  kw('Patch', 'attribute'),
+  kw('Mute', 'attribute'),
+  kw('Unmute', 'attribute'),
+  kw('Input', 'object'),
+  kw('Output', 'object'),
+  kw('Dante', 'object'),
+  kw('Channel', 'object'),
+
   // Clause
   kw('If', 'clause'),
   kw('Category', 'clause'),
@@ -69,6 +85,9 @@ export const KEYWORDS: readonly Keyword[] = [
   // Assignment, borrowed from grandMA3 and Titan. Optional noise before a
   // value, so both "Set … Source 1" and "… Source At 1" read naturally.
   kw('At', 'operator'),
+  // `To` is the same operator, spelled the way a patch reads out loud:
+  // "Patch Input 1 Channel 1 To Dante 1". Both are accepted everywhere.
+  kw('To', 'operator'),
 
   // Record-mask categories. Source, Position, Size and Opacity are NOT repeated
   // here: they are declared once above as attributes, and the parser reads them

@@ -474,3 +474,122 @@ describe('pixels and percentages', () => {
     expect(run('Recall Screen 1 + 3 - 1 Memory 5').ops).toHaveLength(1)
   })
 })
+
+// ---------------------------------------------------------------------------
+
+describe('audio routing', () => {
+  const wsOf = (input: string) => run(input).ops.map((o) => o.path.toWs().join('/'))
+
+  it('patches one source to one destination', () => {
+    const c = run('Set Audio Patch Input 1 Channel 1 To Dante 1')
+    expect(c.ops).toHaveLength(1)
+    expect(c.ops[0].path.toWs().join('/')).toBe(
+      'device/audio/control/deviceList/items/1/txList/items/DANTE_1/channelList/items/1/control/pp/source',
+    )
+    expect(c.ops[0].value).toBe('INPUT_1_CHANNEL_1')
+  })
+
+  /* A patch is a single write: the source's own key, put into the
+     destination channel's `source`. There is no crosspoint object. */
+  it('writes the source key rather than a crosspoint', () => {
+    expect(run('Set Audio Patch Dante 11 To Output 2 Channel 4').ops[0].value).toBe('DANTE_2_CHANNEL_3')
+  })
+
+  /* Dante is eight blocks of eight on the wire and a flat run to everyone
+     else. The grammar takes the flat number and the model does the division;
+     11 is block 2 channel 3. */
+  it('flattens Dante numbering in both directions', () => {
+    expect(wsOf('Set Audio Mute Dante 11')[0]).toContain('txList/items/DANTE_2/channelList/items/3')
+    expect(errorOf('Set Audio Patch Dante 2 Channel 3 To Dante 1')).toMatch(/numbered straight through/)
+    expect(errorOf('Set Audio Mute Dante 65')).toMatch(/dante/i)
+  })
+
+  it('takes the user’s own phrasing, and the abbreviations', () => {
+    const long = wsOf('Set Audio Patch Input 1 Channel 1 To Dante 1')
+    expect(wsOf('Set Audio Patch Input 1 Channel 1 At Dante 1')).toEqual(long)
+    expect(wsOf('Set Audio Patch Input 1 Channel 1 Dante 1')).toEqual(long)
+    expect(wsOf('Set Aud Pa In 1 Ch 1 To Da 1')).toEqual(long)
+  })
+
+  it('mutes a range of Dante channels', () => {
+    const c = run('Set Audio Mute Dante 1 Thru 6')
+    expect(c.ops).toHaveLength(6)
+    expect(c.ops.every((o) => o.value === true)).toBe(true)
+    expect(c.ops[5].path.toWs().join('/')).toContain('DANTE_1/channelList/items/6')
+  })
+
+  it('unmutes, which is the same path with the other value', () => {
+    expect(run('Set Audio Unmute Dante 1').ops[0].value).toBe(false)
+  })
+
+  /*
+   * The distinction that would look like it worked if it were wrong: muting a
+   * source silences it into every destination it feeds; muting a destination
+   * channel silences only that channel. They are different subtrees.
+   */
+  it('mutes a source in the receiver list and a destination in the transmitter list', () => {
+    expect(wsOf('Set Audio Mute Input 5 Channel 1')[0]).toBe(
+      'device/audio/control/deviceList/items/1/rxList/items/INPUT_5_CHANNEL_1/control/pp/mute',
+    )
+    expect(wsOf('Set Audio Mute Output 5 Channel 1')[0]).toBe(
+      'device/audio/control/deviceList/items/1/txList/items/OUTPUT_5/channelList/items/1/control/pp/mute',
+    )
+  })
+
+  it('takes a whole unit to mean all eight of its channels', () => {
+    expect(run('Set Audio Mute Output 3').ops).toHaveLength(8)
+    expect(run('Set Audio Patch None To Output 3').ops).toHaveLength(8)
+  })
+
+  /* Run patching, the idiom every audio desk has: eight sources laid onto a
+     destination counts forward from it. */
+  it('lays a run of sources onto consecutive destinations', () => {
+    const c = run('Set Audio Patch Input 1 Channel 1 Thru 8 To Dante 1')
+    expect(c.ops).toHaveLength(8)
+    expect(c.ops[7].value).toBe('INPUT_1_CHANNEL_8')
+    expect(c.ops[7].path.toWs().join('/')).toContain('DANTE_1/channelList/items/8')
+  })
+
+  it('walks an output’s own channels but never into the next output', () => {
+    const c = run('Set Audio Patch Input 2 Channel 1 Thru 4 To Output 5 Channel 3')
+    /* …/channelList/items/<ch>/control/pp/source — the channel is four from the end. */
+    expect(c.ops.map((o) => o.path.toWs().at(-4))).toEqual(['3', '4', '5', '6'])
+    expect(errorOf('Set Audio Patch Input 2 Channel 1 Thru 8 To Output 5 Channel 3')).toMatch(/past the end/)
+  })
+
+  it('refuses a run that would fall off the end of Dante', () => {
+    expect(errorOf('Set Audio Patch Input 1 Channel 1 Thru 8 To Dante 60')).toMatch(/past the end/)
+  })
+
+  /* A patch that quietly did some of what was asked would be worse than one
+     that refuses. */
+  it('refuses a count that lines up neither one-to-one nor as a run', () => {
+    expect(errorOf('Set Audio Patch Input 1 Channel 1 Thru 4 To Dante 1 Thru 8')).toMatch(/one per destination/)
+  })
+
+  it('refuses to patch the wrong way round', () => {
+    expect(errorOf('Set Audio Patch Output 1 Channel 1 To Dante 1')).toMatch(/destination, not a source/)
+    expect(errorOf('Set Audio Patch Input 1 Channel 1 To Input 2 Channel 1')).toMatch(/source, not a destination/)
+    expect(errorOf('Set Audio Patch Input 1 Channel 1 To None')).toMatch(/cannot be patched to/)
+  })
+
+  it('is set, never recalled or stored', () => {
+    expect(errorOf('Recall Audio Mute Dante 1')).toMatch(/Set Audio/)
+    expect(errorOf('Store Audio Patch Input 1 Channel 1 To Dante 1')).toMatch(/Set Audio/)
+  })
+
+  it('does not let an audio command trail into a screen command', () => {
+    expect(errorOf('Set Audio Mute Dante 1 Screen 2')).toMatch(/after the audio command/)
+  })
+
+  /* Adding `Audio` lengthened `Aux` from `Au` to `Aux`, which is the
+     documented cost of prefix abbreviation. Pinned so nobody is surprised. */
+  it('lengthens Aux, and both still resolve', () => {
+    expect(shortestForm('Aux')).toBe('Aux')
+    expect(shortestForm('Audio')).toBe('Aud')
+    const aux = resolveKeyword('Aux')
+    expect(aux.ok && aux.keyword.word).toBe('Aux')
+    const ambiguous = resolveKeyword('Au')
+    expect(ambiguous.ok).toBe(false)
+  })
+})

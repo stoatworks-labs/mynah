@@ -8,8 +8,13 @@
  * WebSocket, an offline path listing, or an exported macro.
  */
 
-import type { Amount, Assignment, Command, Filter, Scope } from './ast.ts'
+import type { Amount, Assignment, AudioCommand, AudioEndpoint, Command, Filter, Scope } from './ast.ts'
 import {
+  AUDIO,
+  audioDestination,
+  audioRxMute,
+  audioSourceKey,
+  audioTxProp,
   CATEGORIES,
   DIMS,
   SLOTS,
@@ -109,6 +114,8 @@ export interface CompileContext {
 export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
   const errors: CompileError[] = []
   const fail = (message: string): CompileResult => ({ ok: false, errors: [{ message }] })
+
+  if (cmd.audio) return compileAudio(cmd.audio, ctx, fail)
 
   const targets = resolveTargets(cmd.scope, ctx.selection)
   const layers = resolveLayers(cmd.scope, ctx.selection)
@@ -605,4 +612,201 @@ const describeTarget = (t: Target) => (t.kind === 'screen' ? `Screen ${t.n}` : `
 function summarise(verb: string, count: number, targets: readonly Target[]): string {
   if (count === 1) return `${verb} ${describeTarget(targets[0])}`
   return `${verb} ${targets.map(describeTarget).join(', ')} — ${count} ops`
+}
+
+
+// ---------------------------------------------------------------------------
+// Audio routing
+// ---------------------------------------------------------------------------
+
+/**
+ * One addressable point in the matrix, after ranges have been flattened.
+ *
+ * A destination is a `(unit, channel)` pair; Dante collapses to a single
+ * number that the model splits into its eight-block form on the way to a path.
+ */
+interface AudioPoint {
+  readonly kind: AudioEndpoint['kind']
+  readonly unit: number
+  readonly channel: number
+  readonly describe: string
+}
+
+/**
+ * Expand an endpoint into the points it names, in the order they were written.
+ *
+ * A unit with no `Channel` means **all eight of its channels** — "Mute Output
+ * 3" silences output 3, not some arbitrary channel of it. That is also what
+ * makes `Patch Input 1 To Output 3` a sensible whole-input patch rather than
+ * an error.
+ */
+function audioPoints(ep: AudioEndpoint): readonly AudioPoint[] {
+  if (ep.kind === 'none') return [{ kind: 'none', unit: 0, channel: 0, describe: 'None' }]
+
+  const units = ep.unit?.values ?? []
+  if (ep.kind === 'dante') {
+    return units.map((n) => ({ kind: 'dante' as const, unit: n, channel: n, describe: `Dante ${n}` }))
+  }
+
+  const label = ep.kind === 'multiviewer' ? 'Multiviewer' : ep.kind === 'input' ? 'Input' : 'Output'
+  const channels = ep.channels?.values ?? range(AUDIO.channel.min, AUDIO.channel.max)
+  const out: AudioPoint[] = []
+  for (const unit of units) {
+    for (const channel of channels) {
+      out.push({ kind: ep.kind, unit, channel, describe: `${label} ${unit} Ch ${channel}` })
+    }
+  }
+  return out
+}
+
+const range = (min: number, max: number): number[] =>
+  Array.from({ length: max - min + 1 }, (_, i) => min + i)
+
+/** Which frame's matrix. Linked systems have one each; nobody has said which yet. */
+const AUDIO_FRAME = 1
+
+function compileAudio(
+  audio: AudioCommand,
+  _ctx: CompileContext,
+  fail: (message: string) => CompileResult,
+): CompileResult {
+  const targets = audio.to ? audioPoints(audio.to) : []
+  if (targets.length === 0) return fail('That audio command names nothing to act on')
+
+  if (audio.action === 'MUTE' || audio.action === 'UNMUTE') {
+    const value = audio.action === 'MUTE'
+    const ops: Op[] = []
+    for (const p of targets) {
+      if (p.kind === 'none') return fail('None is not something that can be muted')
+      /*
+       * A source and a destination are muted in different places, and the
+       * difference is not cosmetic: muting an input silences it into *every*
+       * destination it feeds, while muting an output channel silences only
+       * that channel. Sending the wrong one would look like it worked.
+       */
+      const path =
+        p.kind === 'input'
+          ? audioRxMute(AUDIO_FRAME, audioSourceKey({ kind: 'input', unit: p.unit, channel: p.channel }))
+          : (() => {
+              const d = audioDestination({ kind: p.kind as 'output' | 'dante' | 'multiviewer', unit: p.unit, channel: p.channel })
+              return audioTxProp(AUDIO_FRAME, d.key, d.channel, 'mute')
+            })()
+      ops.push({ path, value, describe: `${audio.action === 'MUTE' ? 'Mute' : 'Unmute'} ${p.describe}` })
+    }
+    const verb = audio.action === 'MUTE' ? 'Mute' : 'Unmute'
+    return {
+      ok: true,
+      ops,
+      summary: ops.length === 1 ? ops[0].describe : `${verb} ${ops.length} audio channels`,
+    }
+  }
+
+  // ---------------------------------------------------------------- patch
+  if (!audio.from) return fail('Patch needs a source')
+  const sources = audioPoints(audio.from)
+
+  for (const p of targets) {
+    if (p.kind === 'none') return fail('None cannot be patched to — it is what you patch *from* to clear')
+    if (p.kind === 'input') return fail('An input is a source, not a destination — patch to an Output, Dante or Multiviewer')
+  }
+  for (const p of sources) {
+    if (p.kind === 'output' || p.kind === 'multiviewer') {
+      return fail('An output is a destination, not a source — patch from an Input, Dante or None')
+    }
+  }
+
+  /*
+   * Line the sources up against the destinations.
+   *
+   * Three shapes are meant, and they are the three an operator actually types:
+   *
+   * - **One to one.** Same count both sides, laid on in order.
+   * - **One source, many destinations.** `Patch None To Output 3` clears all
+   *   eight channels of output 3; one source spreads across the lot.
+   * - **Many sources, one destination — a run.** `Patch Input 1 Channel 1
+   *   Thru 8 To Dante 1` fills Dante 1 to 8. This is how patching is done on
+   *   every audio desk, and refusing it would make the range operator useless
+   *   on the half of the command that most wants it.
+   *
+   * A run only ever counts forward *within* what the destination already
+   * names: Dante walks its flat numbering, and an output walks its own eight
+   * channels and stops. It will not roll on into the next output — deciding
+   * that Output 3 Channel 8 is followed by Output 4 Channel 1 is a guess about
+   * someone's patch, and a patch that quietly did something adjacent to what
+   * was asked is worse than one that refuses.
+   */
+  let spread = targets
+  if (sources.length > 1 && targets.length === 1) {
+    const run = expandRun(targets[0], sources.length)
+    if (!run) {
+      return fail(
+        `${sources.length} sources will not fit from ${targets[0].describe} — ` +
+          'the run would go past the end of that destination',
+      )
+    }
+    spread = run
+  }
+
+  if (sources.length !== 1 && sources.length !== spread.length) {
+    return fail(
+      `That patches ${sources.length} source${sources.length === 1 ? '' : 's'} into ` +
+        `${spread.length} destination${spread.length === 1 ? '' : 's'} — give one source, one per destination, or a run`,
+    )
+  }
+
+  const ops: Op[] = spread.map((dest, i) => {
+    const src = sources.length === 1 ? sources[0] : sources[i]
+    const key = audioSourceKey({
+      kind: src.kind as 'input' | 'dante' | 'none',
+      unit: src.unit,
+      channel: src.channel,
+    })
+    const d = audioDestination({
+      kind: dest.kind as 'output' | 'dante' | 'multiviewer',
+      unit: dest.unit,
+      channel: dest.channel,
+    })
+    return {
+      path: audioTxProp(AUDIO_FRAME, d.key, d.channel, 'source'),
+      value: key,
+      describe: `Patch ${src.describe} → ${dest.describe}`,
+    }
+  })
+
+  return {
+    ok: true,
+    ops,
+    summary:
+      ops.length === 1
+        ? ops[0].describe
+        : `Patch ${sources.length === 1 ? sources[0].describe : sources.length + ' sources'} → ${spread.length} destinations`,
+  }
+}
+
+/**
+ * Count `n` destinations forward from one, or refuse.
+ *
+ * Dante counts through its flat numbering; an output or multiviewer counts
+ * through its own eight channels and no further. Returning undefined rather
+ * than clamping is the point — a short patch that looks like it worked is the
+ * failure being avoided.
+ */
+function expandRun(start: AudioPoint, n: number): readonly AudioPoint[] | undefined {
+  if (start.kind === 'dante') {
+    if (start.unit + n - 1 > AUDIO.dante.max) return undefined
+    return Array.from({ length: n }, (_, i) => ({
+      kind: 'dante' as const,
+      unit: start.unit + i,
+      channel: start.unit + i,
+      describe: `Dante ${start.unit + i}`,
+    }))
+  }
+  if (start.channel + n - 1 > AUDIO.channel.max) return undefined
+  const label = start.kind === 'multiviewer' ? 'Multiviewer' : 'Output'
+  return Array.from({ length: n }, (_, i) => ({
+    kind: start.kind,
+    unit: start.unit,
+    channel: start.channel + i,
+    describe: `${label} ${start.unit} Ch ${start.channel + i}`,
+  }))
 }

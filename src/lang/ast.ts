@@ -57,6 +57,30 @@ export interface Filter {
   readonly categories?: readonly Category[]
 }
 
+/** What a `Set Audio` is doing. */
+export type AudioAction = 'PATCH' | 'MUTE' | 'UNMUTE'
+
+/**
+ * One end of an audio route.
+ *
+ * `unit` is the input, output or multiviewer number — or, for Dante, the flat
+ * channel number, because Dante has no unit an operator thinks in. `channels`
+ * is the channel within a unit, and is meaningless for Dante and `None`.
+ */
+export interface AudioEndpoint {
+  readonly kind: 'input' | 'output' | 'dante' | 'multiviewer' | 'none'
+  readonly unit?: NumberSet
+  readonly channels?: NumberSet
+}
+
+export interface AudioCommand {
+  readonly action: AudioAction
+  /** The source being patched. Absent on a mute. */
+  readonly from?: AudioEndpoint
+  /** The destination being patched, or the thing being muted. */
+  readonly to?: AudioEndpoint
+}
+
 export interface Command {
   readonly fn: FunctionName
   readonly scope: Scope
@@ -65,6 +89,7 @@ export interface Command {
   readonly label?: string
   readonly filter?: Filter
   readonly set?: Assignment
+  readonly audio?: AudioCommand
 }
 
 export interface ParseError {

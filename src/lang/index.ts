@@ -12,9 +12,9 @@
 export { parse } from './parser.ts'
 export { compile } from './compile.ts'
 export { KEYWORDS, keywordTable, resolveKeyword, shortestForm, completions } from './keywords.ts'
-export { CATEGORIES, DIMS, SLOTS, VERIFIED_FIRMWARE } from './model.ts'
+export { AUDIO, CATEGORIES, DIMS, SLOTS, VERIFIED_FIRMWARE } from './model.ts'
 export { Path } from './paths.ts'
 
-export type { Command, ParseResult } from './ast.ts'
+export type { AudioAction, AudioCommand, AudioEndpoint, Command, ParseResult } from './ast.ts'
 export type { Op, CompileResult, CompileContext, Selection } from './compile.ts'
 export type { BankKind, PresetMode, Category, Target } from './model.ts'
