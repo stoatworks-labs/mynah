@@ -25,6 +25,9 @@ export class SimLink implements Link {
     private readonly onChanged?: () => void,
   ) {}
 
+  /** The simulator models the store, not the socket in front of it. */
+  readonly canAwj = false
+
   get state(): LinkState {
     return this.current
   }

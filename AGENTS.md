@@ -21,7 +21,11 @@ src/lang/          the language. No DOM, no network, no React.
   compile.ts       Command -> ordered device writes. ALL policy lives here:
                    defaults, sticky scope, and the order a master store needs
   model.ts         the device's dimensions, enums and path builders
-  paths.ts         one path, rendered for either transport
+  paths.ts         one path, rendered for either transport — and read back
+                   from either, which is what the raw languages need
+  dialects/        the other three languages. AWJ, raw store JSON and OSC,
+                   plus detection and the OSC dictionary. `run()` takes a line
+                   in any of the four and returns one shape
 src/link/
   webrcs.ts        the Web RCS WebSocket — envelope, keepalive, REMOTE channel
   banks.ts         streaming extractor for the 124 MB store snapshot
@@ -33,6 +37,7 @@ src/lang/index.ts  the PUBLIC surface of the language, for consumers outside
                    never transcribed twice.
 streamdeck/        the plugin: same lang core, its own link, Elgato plumbing
 docs/SYNTAX.md     the grammar, and why the defaults are what they are
+docs/LANGUAGES.md  the four command languages, detection, and the OSC rules
 docs/PATHS.md      every device path, firmware-tagged, with the traps
 docs/DEVICES.md    keyboard / X-Keys / Stream Deck
 ```
@@ -54,6 +59,13 @@ alone.
 **Do not trust an accepted write.** The device answers a recall of an empty
 memory with complete silence — no error. Positive confirmation is `isLoading`
 appearing at all. See the trace in `docs/PATHS.md`.
+
+**A language prefix must never collide with a keyword.** `MYNAH`, `AWJ`,
+`JSON` and `OSC` lead a line to declare its language. `STORE` was briefly an
+alias for `JSON`, and every `Store Master 12` silently became a JSON parse
+error. `dialects.test.ts` asserts the prefix set stays disjoint from the live
+keyword table; that test is the thing that must fail before such a change can
+ship.
 
 **Short forms are derived.** `shortestForm()` computes the minimal unambiguous
 prefix from the whole table. `Mask` has no abbreviation because `Master` shares
@@ -82,9 +94,23 @@ Two things that are easy to get wrong:
 
 ## Transport
 
-The browser cannot open TCP 10606, so AWJ is unreachable from a page — the tool
-uses the Web RCS WebSocket. AWJ rendering is kept in `paths.ts` anyway because
-it is the readable spelling, and it is what the docs and the UI preview show.
+The browser cannot open TCP 10606 — no page can open a raw TCP socket by any
+route — so in a tab the tool uses the Web RCS WebSocket. **The desktop build
+can**, and does: `src-tauri/src/awj.rs` opens a real AWJ connection per
+exchange, which is what makes `{"op":"get",…}` answerable at all.
+
+Two consequences worth holding on to:
+
+- **An AWJ message typed in a browser still runs.** It is converted to the
+  store spelling and sent on the WebSocket, and it lands at the same node —
+  `Path` holds both spellings. What is lost is the *reply*.
+- **`Link.canAwj` is the gate**, not the build flag. `webrcs.ts` and `sim.ts`
+  say false; `desktop.ts` says true and implements `awj()`. A read on a
+  transport that cannot perform one is refused by name rather than dropped.
+
+One AWJ connection per exchange, closed after. The device allows five clients
+and counts them, so an idle console holding one open would spend a scarce slot
+on nothing and appear in the device's own client list all show.
 
 The store snapshot (`GET /api/stores/device`) is 124 MB, cannot be narrowed, and
 sends no CORS header. Do not build anything that depends on reading it.

@@ -74,6 +74,12 @@ export class WebRcsLink implements Link {
     return `ws://${host}:${port}/`
   }
 
+  /**
+   * No page can open TCP 10606, so AWJ typed here rides the store spelling
+   * instead. See the note on `Link.canAwj`.
+   */
+  readonly canAwj = false
+
   get state(): LinkState {
     if (!this.ws) return 'idle'
     switch (this.ws.readyState) {

@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { bufferForMode } from './lang/model.ts'
-import { compile, type DeviceFacts, type Selection } from './lang/compile.ts'
+import { type DeviceFacts, type Selection } from './lang/compile.ts'
 import { completions, keywordTable } from './lang/keywords.ts'
-import { parse } from './lang/parser.ts'
+import { LANGUAGE_LABELS, declared, run as runLine, sniff } from './lang/dialects/index.ts'
+import type { AwjMessage } from './link/transport.ts'
+import { DEFAULT_SETTINGS, loadSettings, saveSettings, type Settings } from './settings.ts'
+import { LanguageBar } from './components/LanguageBar.tsx'
 import { VERIFIED_FIRMWARE } from './lang/model.ts'
 import { SIMULATOR_PORT, mixedContentBlocked } from './link/webrcs.ts'
 import { SimDevice } from './sim/device.ts'
@@ -30,6 +33,7 @@ export function App() {
   const [indexError, setIndexError] = useState<string | undefined>()
   const [host, setHost] = useState('127.0.0.1')
   const [port, setPort] = useState(SIMULATOR_PORT)
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS)
   const inputRef = useRef<HTMLInputElement>(null)
 
   /**
@@ -124,28 +128,113 @@ export function App() {
     [link.facts],
   )
 
+  /* Restored after first paint rather than in the initial state, so a build
+     rendered where there is no localStorage — a test, an SSR probe — comes up
+     on the defaults instead of throwing before anything is on screen. */
+  useEffect(() => setSettings(loadSettings()), [])
+
+  const updateSettings = useCallback((patch: Partial<Settings>) => {
+    setSettings((prev) => {
+      const next = { ...prev, ...patch }
+      saveSettings(next)
+      return next
+    })
+  }, [])
+
+  /**
+   * Everything the four languages need to compile a line.
+   *
+   * The OSC resolver takes the same `buffer` question the compiler does, for
+   * the same reason: `preview` and `program` name whichever preset buffer is
+   * pending or live right now, and a take swaps them. One source of that fact,
+   * used by both.
+   */
+  const runContext = useMemo(
+    () => ({
+      selection,
+      facts,
+      language: settings.language,
+      osc: { buffer: facts.buffer },
+    }),
+    [selection, facts, settings.language],
+  )
+
+  /**
+   * Which language the line currently being typed is being read as.
+   *
+   * Only meaningful on `All` — with a language pinned there is nothing to
+   * detect and the strip says nothing. Shown live because a misread line
+   * produces an error about a character rather than about a command, which
+   * reads as the operator's own typo rather than as a wrong guess.
+   */
+  const detectedLanguage = useMemo(() => {
+    if (settings.language !== 'all') return undefined
+    const trimmed = input.trim()
+    if (trimmed === '') return undefined
+    const head = declared(trimmed)
+    const id = head.language ?? sniff(head.body)
+    return head.language ? `${LANGUAGE_LABELS[id]} (declared)` : LANGUAGE_LABELS[id]
+  }, [input, settings.language])
+
+  /**
+   * A compiled line as AWJ messages, for the real-socket transport.
+   *
+   * Rendered from `Path` rather than kept from the text the operator typed:
+   * the shorthand forms and the canonical form must reach the device
+   * identically, and a path that survived `Path.fromAwj` is one this app has
+   * actually understood rather than one it is passing through untouched.
+   */
+  const asAwj = useCallback(
+    (result: Extract<ReturnType<typeof runLine>, { ok: true }>): AwjMessage[] => [
+      ...result.ops.map((op) => ({ op: 'replace' as const, path: op.path.toAwj(), value: op.value })),
+      ...result.reads.map((r) => ({ op: 'get' as const, path: r.path.toAwj() })),
+    ],
+    [],
+  )
+
+  /**
+   * Whether this line should go out on a real AWJ socket.
+   *
+   * Two ways it can: the operator chose that transport for AWJ, or the line
+   * contains a read, which nothing else can answer. A read with no socket
+   * available is refused by name rather than quietly dropped — see `execute`.
+   */
+  const wantsAwjSocket = useCallback(
+    (result: Extract<ReturnType<typeof runLine>, { ok: true }>): boolean => {
+      if (!link.canAwj) return false
+      if (result.reads.length > 0) return true
+      return result.language === 'awj' && settings.awjTransport === 'socket'
+    },
+    [link.canAwj, settings.awjTransport],
+  )
+
   // Live parse of whatever is typed, for the preview strip under the line.
   const preview = useMemo(() => {
     const trimmed = input.trim()
     if (trimmed === '') return undefined
-    const parsed = parse(trimmed)
-    if (!parsed.ok) {
-      return { ok: false as const, message: parsed.errors[0].message }
-    }
-    const compiled = compile(parsed.command, { selection, facts })
-    if (!compiled.ok) {
-      return { ok: false as const, message: compiled.errors[0].message }
-    }
-    const empty =
-      parsed.command.fn === 'Recall' ? slotEmpty(compiled.bank, compiled.slot) : undefined
+    const result = runLine(trimmed, runContext)
+    if (!result.ok) return { ok: false as const, message: result.errors[0].message }
+
+    const empty = result.fn === 'Recall' ? slotEmpty(result.bank, result.slot) : undefined
+
+    /* A read the current transport cannot perform is worth saying *before*
+       Enter, because the alternative is a command that appears to run and
+       reports nothing back. */
+    const unanswerable =
+      result.reads.length > 0 && !link.canAwj
+        ? 'A get needs a real AWJ socket on TCP 10606 — run the desktop app'
+        : undefined
+
     return {
       ok: true as const,
-      summary: compiled.summary,
-      ops: compiled.ops,
-      selection: compiled.selection,
-      warning: empty ? `Memory ${compiled.slot} is empty — the device will accept this and do nothing` : undefined,
+      summary: result.summary,
+      ops: result.ops,
+      selection: result.selection,
+      warning:
+        unanswerable ??
+        (empty ? `Memory ${result.slot} is empty — the device will accept this and do nothing` : undefined),
     }
-  }, [input, selection, slotEmpty, facts])
+  }, [input, runContext, slotEmpty, link.canAwj])
 
   const history = useMemo(() => link.log.map((e) => e.input), [link.log])
 
@@ -162,13 +251,10 @@ export function App() {
     const trimmed = input.trim()
     if (trimmed === '') return
 
-    const parsed = parse(trimmed)
-    if (!parsed.ok) return
+    const result = runLine(trimmed, runContext)
+    if (!result.ok) return
 
-    const compiled = compile(parsed.command, { selection, facts })
-    if (!compiled.ok) return
-
-    if (parsed.command.fn === 'Clear') {
+    if (result.fn === 'Clear') {
       // Clear takes the command line first, and the scope only once the line
       // is already empty — so a mistyped command is never one keystroke away
       // from also losing the scope it was going to act on.
@@ -182,48 +268,69 @@ export function App() {
       return
     }
 
-    if (compiled.selection) {
-      setSelection(compiled.selection)
-      link.note(trimmed, compiled.summary)
+    if (result.selection) {
+      setSelection(result.selection)
+      link.note(trimmed, result.summary)
       setInput('')
       return
     }
 
-    link.send(
-      trimmed,
-      compiled.summary,
-      compiled.ops,
-      parsed.command.fn === 'Recall' ? compiled.slot : undefined,
-    )
+    /* A read is refused out loud rather than dropped. The whole point of a get
+       is the answer, so a build that cannot fetch one has to say so — a
+       command that appears to run and reports nothing is the worse outcome. */
+    if (result.reads.length > 0 && !link.canAwj) {
+      link.note(trimmed, 'Rejected: a get needs a real AWJ socket on TCP 10606 — run the desktop app')
+      setInput('')
+      return
+    }
+
+    if (wantsAwjSocket(result)) {
+      link.sendAwj(trimmed, result.summary, asAwj(result))
+      setInput('')
+      return
+    }
+
+    /* A trigger whose OSC argument was a button release compiles to nothing.
+       Logged rather than silently swallowed, so a surface that is sending
+       something the console is right to ignore still shows up. */
+    if (result.ops.length === 0) {
+      link.note(trimmed, result.summary)
+      setInput('')
+      return
+    }
+
+    link.send(trimmed, result.summary, result.ops, result.fn === 'Recall' ? result.slot : undefined)
     setInput('')
-  }, [input, selection, link, facts])
+  }, [input, runContext, link, asAwj, wantsAwjSocket])
 
   /** A hardware key runs a command string exactly as if it were typed. */
   const runCommand = useCallback(
     (command: string) => {
-      const parsed = parse(command)
-      if (!parsed.ok) {
-        link.note(command, `Rejected: ${parsed.errors[0].message}`)
+      const result = runLine(command, runContext)
+      if (!result.ok) {
+        link.note(command, `Rejected: ${result.errors[0].message}`)
         return
       }
-      const compiled = compile(parsed.command, { selection, facts })
-      if (!compiled.ok) {
-        link.note(command, `Rejected: ${compiled.errors[0].message}`)
+      if (result.selection) {
+        setSelection(result.selection)
+        link.note(command, result.summary)
         return
       }
-      if (compiled.selection) {
-        setSelection(compiled.selection)
-        link.note(command, compiled.summary)
+      if (wantsAwjSocket(result)) {
+        link.sendAwj(command, result.summary, asAwj(result))
         return
       }
-      link.send(
-        command,
-        compiled.summary,
-        compiled.ops,
-        parsed.command.fn === 'Recall' ? compiled.slot : undefined,
-      )
+      if (result.reads.length > 0) {
+        link.note(command, 'Rejected: a get needs a real AWJ socket on TCP 10606')
+        return
+      }
+      if (result.ops.length === 0) {
+        link.note(command, result.summary)
+        return
+      }
+      link.send(command, result.summary, result.ops, result.fn === 'Recall' ? result.slot : undefined)
     },
-    [selection, link, facts],
+    [runContext, link, asAwj, wantsAwjSocket],
   )
 
   const xkeys = useXKeys(runCommand)
@@ -263,6 +370,15 @@ export function App() {
           demoLocked={mixedContentBlocked()}
         />
       </header>
+
+      <LanguageBar
+        language={settings.language}
+        onLanguage={(language) => updateSettings({ language })}
+        awjTransport={settings.awjTransport}
+        onAwjTransport={(awjTransport) => updateSettings({ awjTransport })}
+        canAwj={link.canAwj}
+        detected={detectedLanguage}
+      />
 
       <DeviceBar
         scope={scopeLabel}

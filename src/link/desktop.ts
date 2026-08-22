@@ -12,7 +12,7 @@
  * difference.
  */
 
-import type { DeviceValue, Link, LinkEvents, LinkState } from './transport.ts'
+import type { AwjMessage, AwjReply, DeviceValue, Link, LinkEvents, LinkState } from './transport.ts'
 
 /** Minimal shape of the Tauri v2 API, resolved lazily so a browser build never loads it. */
 interface TauriApi {
@@ -31,6 +31,15 @@ async function tauri(): Promise<TauriApi> {
 export class DesktopLink implements Link {
   private unlisten: (() => void)[] = []
   private current: LinkState = 'idle'
+
+  /**
+   * This is the build that can. Rust has no browser sandbox in front of it, so
+   * TCP 10606 is simply a socket — which makes the desktop app the only place
+   * an AWJ `get` can be answered, and the only place a message can go out on
+   * the wire in the form it was typed rather than translated to the store
+   * spelling first.
+   */
+  readonly canAwj = true
 
   constructor(
     private readonly host: string,
@@ -114,5 +123,23 @@ export class DesktopLink implements Link {
       }
     })()
     return true
+  }
+
+  /**
+   * One AWJ exchange, on a connection of its own.
+   *
+   * Deliberately not pooled. The device allows five AWJ clients at once and
+   * counts them; a console that opened one on startup would hold a scarce slot
+   * open for the sake of the occasional typed `get`, and would show up as a
+   * client to whoever is looking at the device's own list. A connect per
+   * command costs a few milliseconds and nothing else.
+   */
+  async awj(messages: readonly AwjMessage[]): Promise<readonly AwjReply[]> {
+    const api = await tauri()
+    const replies = await api.invoke('link_awj', {
+      host: this.host,
+      messages: messages.map((m) => ({ op: m.op, path: m.path, value: m.value ?? null })),
+    })
+    return (Array.isArray(replies) ? replies : []) as AwjReply[]
   }
 }

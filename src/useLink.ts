@@ -16,7 +16,7 @@ import { WebRcsLink } from './link/webrcs.ts'
 import { DesktopLink } from './link/desktop.ts'
 import { SimLink } from './link/sim.ts'
 import type { SimDevice } from './sim/device.ts'
-import { isDesktop, type DeviceValue, type Link, type LinkState } from './link/transport.ts'
+import { isDesktop, type AwjMessage, type DeviceValue, type Link, type LinkState } from './link/transport.ts'
 
 export type EntryStatus = 'sent' | 'working' | 'done' | 'empty' | 'failed' | 'offline'
 
@@ -41,6 +41,8 @@ export interface ScreenFacts {
 
 export interface UseLink {
   readonly state: LinkState
+  /** Whether this build can open a real AWJ socket. See `Link.canAwj`. */
+  readonly canAwj: boolean
   /** Per-screen facts, keyed S1/A1 — populated from device pushes. */
   readonly facts: ReadonlyMap<string, ScreenFacts>
   readonly stateDetail?: string
@@ -53,6 +55,16 @@ export interface UseLink {
    * which lets an empty slot be reported as such rather than as success.
    */
   send: (input: string, summary: string, ops: readonly Op[], expectSlot?: number) => number
+  /**
+   * Send AWJ messages on a real 10606 socket and log what came back.
+   *
+   * Separate from `send` rather than a mode of it, because the two settle
+   * differently and pretending otherwise would mean one of them lying. A store
+   * write is confirmed by its own echo arriving back on the socket, which is
+   * why `send` waits for one. An AWJ exchange is a request and its answer: a
+   * `get` replies, a `replace` is met with silence, and neither one echoes.
+   */
+  sendAwj: (input: string, summary: string, messages: readonly AwjMessage[]) => number
   /** Record a command that produced no device writes, e.g. Select. */
   note: (input: string, summary: string) => number
   clearLog: () => void
@@ -267,6 +279,51 @@ export function useLink(): UseLink {
     return id
   }, [])
 
+  const sendAwj = useCallback(
+    (input: string, summary: string, messages: readonly AwjMessage[]): number => {
+      const id = nextId++
+      const link = linkRef.current
+      const reads = messages.filter((m) => m.op === 'get').length
+
+      setLog((prev) => [
+        { id, input, summary, ops: messages.length, status: 'sent', at: Date.now() },
+        ...prev,
+      ])
+
+      if (!link?.awj) {
+        update(id, { status: 'failed', detail: 'This build cannot open TCP 10606' })
+        return id
+      }
+
+      void link
+        .awj(messages)
+        .then((replies) => {
+          if (reads === 0) {
+            /* A replace is answered with silence — see `awj.rs`. Reporting it
+               as done is the honest reading: the device accepted the bytes.
+               Whether it liked them is a question only a read can answer, and
+               that is exactly why the read exists. */
+            update(id, { status: 'done', detail: 'sent — AWJ does not acknowledge a write' })
+            return
+          }
+          if (replies.length === 0) {
+            update(id, { status: 'empty', detail: 'no reply — the path may not exist on this firmware' })
+            return
+          }
+          update(id, {
+            status: 'done',
+            detail: replies.map((r) => `${r.path} = ${JSON.stringify(r.value)}`).join('  ·  '),
+          })
+        })
+        .catch((err: unknown) => {
+          update(id, { status: 'failed', detail: String((err as Error)?.message ?? err) })
+        })
+
+      return id
+    },
+    [update],
+  )
+
   const note = useCallback((input: string, summary: string): number => {
     const id = nextId++
     setLog((prev) => [{ id, input, summary, ops: 0, status: 'done', at: Date.now() }, ...prev])
@@ -275,8 +332,20 @@ export function useLink(): UseLink {
 
   const clearLog = useCallback(() => setLog([]), [])
 
+  /*
+   * Whether a real AWJ socket is available.
+   *
+   * Read off the build rather than off the live link, because the setting it
+   * gates is on screen before anything is connected — a picker whose only
+   * useful option appears after connecting is a picker nobody finds.
+   */
+  const canAwj = isDesktop()
+
   return useMemo(
-    () => ({ state, stateDetail, log, remoteSelection, facts, connect, disconnect, send, note, clearLog }),
-    [state, stateDetail, log, remoteSelection, facts, connect, disconnect, send, note, clearLog],
+    () => ({
+      state, stateDetail, log, remoteSelection, facts,
+      canAwj, connect, disconnect, send, sendAwj, note, clearLog,
+    }),
+    [state, stateDetail, log, remoteSelection, facts, canAwj, connect, disconnect, send, sendAwj, note, clearLog],
   )
 }

@@ -686,3 +686,72 @@ input[type='text'],
 .wire-memlabel {
   color: var(--text-dim);
 }
+
+/* ---------------------------------------------------------------------------
+   The language strip.
+
+   Sits above the device bar because it changes what the *whole command line*
+   means, where the device bar says what one command will act on. Two selects
+   and a live verdict, laid out so the verdict sits beside the picker that
+   produced it — a detection result on the far side of the row from the
+   Language control would read as unrelated status.
+   --------------------------------------------------------------------------- */
+
+.langbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+
+.langbar-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.langbar-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-faint);
+}
+
+.select {
+  background: var(--bg-sunken);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 6px;
+}
+
+.select option:disabled {
+  color: var(--text-faint);
+}
+
+.langbar-detected {
+  color: var(--text-dim);
+}
+
+.langbar-detected strong {
+  color: var(--accent);
+}
+
+.langbar-hint,
+.langbar-note {
+  color: var(--text-faint);
+}
+
+/* Pushed to the end of the row: it is a reminder, not a control. */
+.langbar-note {
+  margin-left: auto;
+}
+
+.langbar-note code {
+  color: var(--text-dim);
+}

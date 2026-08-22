@@ -259,6 +259,49 @@ const layerRoot = (t: Target, buffer: PresetBuffer, layer: number | 'NATIVE'): P
 export const layerSource = (t: Target, buffer: PresetBuffer, layer: number | 'NATIVE'): Path =>
   layerRoot(t, buffer, layer).node('source').prop('inputNum')
 
+/**
+ * A property inside one layer, addressed by a store tail.
+ *
+ * The named builders above cover what the grammar compiles. This one exists
+ * for the address-driven languages, where the tail comes from a parameter
+ * table rather than from a keyword — `['position','pp','posH']` and
+ * `['cropping','classic','pp','left']` alike. Same root, same rules; only the
+ * last few segments are open.
+ */
+export const layerParamPath = (
+  t: Target,
+  buffer: PresetBuffer,
+  layer: number | 'NATIVE',
+  tail: readonly string[],
+): Path => appendStoreTail(layerRoot(t, buffer, layer), tail)
+
+/** The same, for a property of a screen or aux's take/transition group. */
+export const screenGroupParamPath = (t: Target, tail: readonly string[]): Path =>
+  appendStoreTail(DeviceObject.item('screenAuxGroup', targetKey(t)), tail)
+
+/**
+ * Walk a store-spelled tail onto a path.
+ *
+ * `pp` introduces a property and consumes the segment after it; anything else
+ * is a plain node. Collections do not appear in a parameter tail — everything
+ * below a layer or a group is fixed structure — so `items` is not handled, and
+ * a tail that contains one is a bug in whatever supplied the table rather than
+ * something to guess at.
+ */
+function appendStoreTail(base: Path, tail: readonly string[]): Path {
+  let path = base
+  for (let i = 0; i < tail.length; i++) {
+    if (tail[i] === 'pp') {
+      const name = tail[++i]
+      if (name === undefined) throw new Error('parameter tail ends at pp with no property')
+      path = path.prop(name)
+    } else {
+      path = path.node(tail[i])
+    }
+  }
+  return path
+}
+
 export type PositionProp = 'posH' | 'posV' | 'sizeH' | 'sizeV' | 'anchor'
 
 /** Where a layer is and how big, in pixels, anchored on its centre. */

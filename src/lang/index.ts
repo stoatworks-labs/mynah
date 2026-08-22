@@ -15,6 +15,46 @@ export { KEYWORDS, keywordTable, resolveKeyword, shortestForm, completions } fro
 export { AUDIO, CATEGORIES, DIMS, SLOTS, VERIFIED_FIRMWARE } from './model.ts'
 export { Path } from './paths.ts'
 
+/*
+ * The other three command languages, and the OSC dictionary.
+ *
+ * `run()` is what a console should call: it takes a line in any of the four
+ * languages and returns the same shape whichever it was. `parse`/`compile`
+ * above remain the Mynah-only path, unchanged, for consumers that only ever
+ * speak Mynah — the Stream Deck plugin among them.
+ */
+export {
+  run,
+  declared,
+  sniff,
+  oscDictionary,
+  parseOsc,
+  resolveOsc,
+  OSC_ROOT,
+  coerce,
+  denormalise,
+  paramAddress,
+  paramId,
+  BUILTIN_PARAMS,
+  BUILTIN_LAYER_PARAMS,
+  BUILTIN_GROUP_PARAMS,
+  LANGUAGES,
+  LANGUAGE_LABELS,
+} from './dialects/index.ts'
+
 export type { AudioAction, AudioCommand, AudioEndpoint, Command, ParseResult } from './ast.ts'
 export type { Op, CompileResult, CompileContext, Selection } from './compile.ts'
 export type { BankKind, PresetMode, Category, Target } from './model.ts'
+export type {
+  LanguageChoice,
+  LanguageId,
+  LineError,
+  OscContext,
+  OscEntry,
+  OscMessage,
+  ParamSpec,
+  ParamTable,
+  Read,
+  RunResult,
+} from './dialects/index.ts'
+export type { RunContext } from './dialects/index.ts'

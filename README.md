@@ -86,6 +86,21 @@ layer's centre because that is the device's anchor.
 | Layer | 1–50 | Screen × Preview/Program × layer (Native, 1–128) |
 | Multiviewer | 1–50 | output |
 
+**Four command languages** — the same line accepts Mynah, raw AWJ, raw Web RCS
+store JSON, and OSC. These are the same write:
+
+```
+Take Screen 1
+AWJ DeviceObject/$screenAuxGroup/@items/S1/control/@props/xTake = true
+{"path":["device","screenAuxGroupList","items","S1","control","pp","xTake"],"value":true}
+/lp/screen/1/take
+```
+
+Each line is read as whichever language it looks like, and the verdict is shown
+as you type; a leading `MYNAH`, `AWJ`, `JSON` or `OSC` says which outright, and
+the picker can turn detection off altogether. See
+[docs/LANGUAGES.md](docs/LANGUAGES.md).
+
 **New to it? Start with the [programming guide](docs/GUIDE.md)** — every
 command from one word upwards, with worked examples you can paste into the
 simulator. The full grammar is in [docs/SYNTAX.md](docs/SYNTAX.md), and the
@@ -111,6 +126,12 @@ port 10606 is out of reach from a page. Mynah uses the Web RCS WebSocket
 instead — the same socket the vendor's own UI speaks, on port 80 of a device or
 3000 of the simulator. It needs no bridge and no install, has no five-client
 cap, and pushes state without a subscription list to get wrong.
+
+An AWJ message typed at the command line still runs in a browser: it is
+converted to the store spelling and lands at the same node. What a page cannot
+do is read one back, because that socket carries changes rather than answers.
+**The desktop app opens a real AWJ socket**, which is what makes
+`AWJ get DeviceObject/system/$device/@items/1/@props/dev` answerable.
 
 It also means Mynah sees what a human does in the vendor UI, and follows the
 Web RCS's own screen selection so that selecting a screen in either place
