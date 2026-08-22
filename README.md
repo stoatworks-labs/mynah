@@ -21,6 +21,43 @@ It runs in a browser with nothing installed, talks to the switcher directly,
 and drives the same commands from a keyboard, an X-Keys panel, or a Stream
 Deck.
 
+<!-- downloads:start -->
+
+## Download
+
+**[v1.3.3](https://github.com/stoatworks-labs/mynah/releases/tag/v1.3.3)** — prebuilt for macOS and Linux. Pick your platform:
+
+<details>
+<summary><b>macOS</b> — Apple Silicon, Intel</summary>
+
+| Build | Download | Size |
+| --- | --- | --- |
+| Apple Silicon · .dmg disk image | [`Mynah_1.3.3_aarch64.dmg`](https://github.com/stoatworks-labs/mynah/releases/download/v1.3.3/Mynah_1.3.3_aarch64.dmg) | 2.1 MB |
+| Intel · .dmg disk image | [`Mynah_1.3.3_x64.dmg`](https://github.com/stoatworks-labs/mynah/releases/download/v1.3.3/Mynah_1.3.3_x64.dmg) | 2.2 MB |
+
+</details>
+
+<details>
+<summary><b>Linux</b> — x64</summary>
+
+| Build | Download | Size |
+| --- | --- | --- |
+| x64 · .deb package (Debian/Ubuntu) | [`Mynah_1.3.3_amd64.deb`](https://github.com/stoatworks-labs/mynah/releases/download/v1.3.3/Mynah_1.3.3_amd64.deb) | 2.6 MB |
+| x64 · .rpm package (Fedora/RHEL) | [`Mynah-1.3.3-1.x86_64.rpm`](https://github.com/stoatworks-labs/mynah/releases/download/v1.3.3/Mynah-1.3.3-1.x86_64.rpm) | 2.6 MB |
+
+</details>
+
+Also in this release:
+
+- [`Mynah_aarch64.app.tar.gz`](https://github.com/stoatworks-labs/mynah/releases/latest/download/Mynah_aarch64.app.tar.gz) — Source tarball, 2.0 MB
+- [`Mynah_x64.app.tar.gz`](https://github.com/stoatworks-labs/mynah/releases/latest/download/Mynah_x64.app.tar.gz) — Source tarball, 2.1 MB
+
+All builds, checksums and release notes: [github.com/stoatworks-labs/mynah/releases](https://github.com/stoatworks-labs/mynah/releases).
+
+macOS builds are signed and notarised by Apple, so they open normally — no Gatekeeper warning and no quarantine step.
+
+<!-- downloads:end -->
+
 ## Why
 
 A LivePremier has a lot of memories — 1,000 screen, 500 master, 50 layer — and
