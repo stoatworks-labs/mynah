@@ -124,3 +124,10 @@ because chunk boundaries inside strings are exactly what broke it first time.
 There is no test that talks to a device. The simulator is the test rig: run the
 LivePremier simulator, connect to `127.0.0.1:3000`, and prefer recalls into
 **Preview** — a store overwrites a memory slot for real.
+
+## Notes
+
+`docs/NOTES.md` carries this repo's working notes — current status, decisions
+already made, and the traps that have actually bitten. Read it before changing
+anything non-obvious. Cross-cutting fleet knowledge lives in
+[fleet-notes](https://github.com/stoatworks-labs/fleet-notes).
