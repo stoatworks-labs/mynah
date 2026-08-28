@@ -28,7 +28,7 @@
     "@tauri-apps/cli": "^2.11.4",
     "@types/node": "^26.1.2",
     "@types/react": "^19.2.18",
-    "@types/react-dom": "^19.2.4",
+    "@types/react-dom": "^19.2.5",
     "@types/w3c-web-hid": "^1.0.6",
     "@vitejs/plugin-react": "^6.0.4",
     "jsdom": "^30.0.1",
