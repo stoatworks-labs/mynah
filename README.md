@@ -223,7 +223,7 @@ npm run build:lang        # the language core alone, for other consumers
 
 ## Status
 
-**v0.1.0, and it has driven a real switcher.**
+**v1.3.3, and it has driven a real switcher.**
 
 Verified on a physical **Aquilon C** on firmware 6.2.73: all 21 paths in
 `docs/PATHS.md` resolve, and every verb was executed from the command line —
@@ -238,5 +238,7 @@ buffer `A` on one screen and `B` on another, so there is nothing to hard-code
 there.
 
 Not yet done: neither the **X-Keys** nor the **Stream Deck** path has been run
-against real hardware. The grammar covers memories only; the device's object
-model is far larger, and the syntax is built to grow over it.
+against real hardware. That hardware run covered the memory paths, which are the 21 in
+`docs/PATHS.md`. The grammar has grown past them since — live layer control and
+the audio routing matrix — and neither of those has been exercised against a
+device. The object model is larger still, and the syntax is built to grow over it.
