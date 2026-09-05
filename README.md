@@ -30,15 +30,15 @@ Deck.
 
 ## Download
 
-**[v1.3.3](https://github.com/stoatworks-labs/mynah/releases/tag/v1.3.3)** — prebuilt for macOS and Linux. Pick your platform:
+**[v1.3.4](https://github.com/stoatworks-labs/mynah/releases/tag/v1.3.4)** — prebuilt for macOS and Linux. Pick your platform:
 
 <details>
 <summary><b>macOS</b> — Apple Silicon, Intel</summary>
 
 | Build | Download | Size |
 | --- | --- | --- |
-| Apple Silicon · .dmg disk image | [`Mynah_1.3.3_aarch64.dmg`](https://github.com/stoatworks-labs/mynah/releases/download/v1.3.3/Mynah_1.3.3_aarch64.dmg) | 2.1 MB |
-| Intel · .dmg disk image | [`Mynah_1.3.3_x64.dmg`](https://github.com/stoatworks-labs/mynah/releases/download/v1.3.3/Mynah_1.3.3_x64.dmg) | 2.2 MB |
+| Apple Silicon · .dmg disk image | [`Mynah_1.3.4_aarch64.dmg`](https://github.com/stoatworks-labs/mynah/releases/download/v1.3.4/Mynah_1.3.4_aarch64.dmg) | 2.2 MB |
+| Intel · .dmg disk image | [`Mynah_1.3.4_x64.dmg`](https://github.com/stoatworks-labs/mynah/releases/download/v1.3.4/Mynah_1.3.4_x64.dmg) | 2.3 MB |
 
 </details>
 
@@ -47,15 +47,15 @@ Deck.
 
 | Build | Download | Size |
 | --- | --- | --- |
-| x64 · .deb package (Debian/Ubuntu) | [`Mynah_1.3.3_amd64.deb`](https://github.com/stoatworks-labs/mynah/releases/download/v1.3.3/Mynah_1.3.3_amd64.deb) | 2.6 MB |
-| x64 · .rpm package (Fedora/RHEL) | [`Mynah-1.3.3-1.x86_64.rpm`](https://github.com/stoatworks-labs/mynah/releases/download/v1.3.3/Mynah-1.3.3-1.x86_64.rpm) | 2.6 MB |
+| x64 · .deb package (Debian/Ubuntu) | [`Mynah_1.3.4_amd64.deb`](https://github.com/stoatworks-labs/mynah/releases/download/v1.3.4/Mynah_1.3.4_amd64.deb) | 2.8 MB |
+| x64 · .rpm package (Fedora/RHEL) | [`Mynah-1.3.4-1.x86_64.rpm`](https://github.com/stoatworks-labs/mynah/releases/download/v1.3.4/Mynah-1.3.4-1.x86_64.rpm) | 2.8 MB |
 
 </details>
 
 Also in this release:
 
-- [`Mynah_aarch64.app.tar.gz`](https://github.com/stoatworks-labs/mynah/releases/latest/download/Mynah_aarch64.app.tar.gz) — Source tarball, 2.0 MB
-- [`Mynah_x64.app.tar.gz`](https://github.com/stoatworks-labs/mynah/releases/latest/download/Mynah_x64.app.tar.gz) — Source tarball, 2.1 MB
+- [`Mynah_1.3.4_aarch64.app.tar.gz`](https://github.com/stoatworks-labs/mynah/releases/download/v1.3.4/Mynah_1.3.4_aarch64.app.tar.gz) — Source tarball, 2.2 MB
+- [`Mynah_1.3.4_x64.app.tar.gz`](https://github.com/stoatworks-labs/mynah/releases/download/v1.3.4/Mynah_1.3.4_x64.app.tar.gz) — Source tarball, 2.3 MB
 
 All builds, checksums and release notes: [github.com/stoatworks-labs/mynah/releases](https://github.com/stoatworks-labs/mynah/releases).
 
