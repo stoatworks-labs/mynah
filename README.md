@@ -223,7 +223,7 @@ npm run build:lang        # the language core alone, for other consumers
 
 ## Status
 
-**v1.3.3, and it has driven a real switcher.**
+**v1.3.4 — field testing, and it has driven a real switcher.**
 
 Verified on a physical **Aquilon C** on firmware 6.2.73: all 21 paths in
 `docs/PATHS.md` resolve, and every verb was executed from the command line —
@@ -237,11 +237,23 @@ because the echo matcher only accepted `true`, and preview turned out to map to
 buffer `A` on one screen and `B` on another, so there is nothing to hard-code
 there.
 
+**A second frame, 2026-09-09** (`NLC_C`, firmware 6.2.73). Every path this
+grammar compiles was issued at the box and answered, with **no `E12`** — the 21
+memory paths, and, for the first time on real hardware, **the audio routing
+matrix**. `OUTPUT_1` channel 1 read `source="DANTE_1_CHANNEL_1"`, and a mute
+toggle round-tripped and restored. The device also confirmed the shapes the echo
+matcher depends on: a label echoes back as the STRING written (31 ms), a
+record-mask filter as the ARRAY written (155 ms). `useLink` now has tests
+holding it to exactly those shapes, so that bug cannot come back quietly.
+
 Not yet done: neither the **X-Keys** nor the **Stream Deck** path has been run
-against real hardware. That hardware run covered the memory paths, which are the 21 in
-`docs/PATHS.md`. The grammar has grown past them since — live layer control and
-the audio routing matrix — and neither of those has been exercised against a
-device. The object model is larger still, and the syntax is built to grow over it.
+against real hardware. And there is a distinction worth keeping. What the box has
+answered is every path this grammar *emits*, including live layer control and the
+audio matrix; writes to those same paths were executed and restored on hardware —
+but by a separate test harness, not by Mynah itself. So the vocabulary is proven
+on a device; Mynah's own hand on the wire is proven for the memory verbs and not
+yet for the newer ones. The object model is larger still, and the syntax is built
+to grow over it.
 
 <!-- selfhost:start -->
 ## Run your own copy
