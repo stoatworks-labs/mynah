@@ -166,9 +166,14 @@ export function useLink(): UseLink {
       }
 
       // The echo of our own write is proof it was accepted, but not that it
-      // finished. It counts only when it carries the value we sent — the
-      // device also pushes the trigger back to false afterwards, and that is
-      // not an acknowledgement of anything.
+      // finished. It counts only when it carries the value we sent.
+      //
+      // Note the device does NOT push a trigger back to `false` afterwards —
+      // measured on an Aquilon C at fw 6.2.73, where every `x…` this session
+      // fired was still `true` in a store pulled two minutes later, and every
+      // one it had not touched sat at its resting `false`. A trigger reading
+      // `true` therefore means "fired at some point", never "in progress", so
+      // it can confirm neither the start nor the end of anything.
       const p = pending.current.get(key)
       if (p !== undefined && JSON.stringify(v.value) === JSON.stringify(p.value)) {
         const id = p.id
