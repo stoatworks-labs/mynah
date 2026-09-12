@@ -7,7 +7,8 @@
 
 # Mynah
 
-A lighting-desk command line for Analog Way LivePremier (Aquilon) switchers.
+A lighting-desk command line for Analog Way LivePremier (Aquilon) switchers —
+and, as a language core other apps embed, for Midra 4K and Alta 4K too.
 
 ```
 Recall Screen 1 Memory 5

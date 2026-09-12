@@ -23,8 +23,9 @@ import type {
   ParseResult,
   Scope,
 } from './ast.ts'
-import { AUDIO, CATEGORIES, DIMS, type Category } from './model.ts'
+import { AUDIO, CATEGORIES, type Category } from './model.ts'
 import { lex, type Token } from './lexer.ts'
+import { LIVEPREMIER, type Platform } from './platforms.ts'
 
 const CATEGORY_BY_KEYWORD: Record<string, Category> = {
   Source: 'SOURCE',
@@ -60,11 +61,16 @@ const ATTRIBUTES: readonly string[] = ['Source', 'Position', 'Size', 'Opacity']
 class Parser {
   private pos = 0
   readonly errors: ParseError[] = []
+  /** The ranges a number may fall in. A screen is 1–24 on LivePremier, 1–4 on Midra. */
+  private readonly DIMS: Platform['dims']
 
   constructor(
     private readonly tokens: readonly Token[],
     private readonly inputLength: number,
-  ) {}
+    platform: Platform,
+  ) {
+    this.DIMS = platform.dims
+  }
 
   private peek(): Token | undefined {
     return this.tokens[this.pos]
@@ -201,7 +207,7 @@ class Parser {
     if (this.eatKeyword('Native')) {
       return { native: true, numbers: { values: [], openEnded: false } }
     }
-    const numbers = this.parseRange(DIMS.layer.min, DIMS.layer.max, 'Layer')
+    const numbers = this.parseRange(this.DIMS.layer.min, this.DIMS.layer.max, 'Layer')
     if (!numbers) return undefined
     return { native: false, numbers }
   }
@@ -219,13 +225,13 @@ class Parser {
 
   private parseScopeInto(scope: Mutable<Scope>): boolean {
     if (this.eatKeyword('Screen')) {
-      const r = this.parseRange(DIMS.screen.min, DIMS.screen.max, 'Screen')
+      const r = this.parseRange(this.DIMS.screen.min, this.DIMS.screen.max, 'Screen')
       if (!r) return false
       scope.screens = r
       return true
     }
     if (this.eatKeyword('Aux')) {
-      const r = this.parseRange(DIMS.aux.min, DIMS.aux.max, 'Aux')
+      const r = this.parseRange(this.DIMS.aux.min, this.DIMS.aux.max, 'Aux')
       if (!r) return false
       scope.auxes = r
       return true
@@ -237,7 +243,7 @@ class Parser {
       return true
     }
     if (this.eatKeyword('Multiviewer')) {
-      const r = this.parseRange(DIMS.multiviewer.min, DIMS.multiviewer.max, 'Multiviewer')
+      const r = this.parseRange(this.DIMS.multiviewer.min, this.DIMS.multiviewer.max, 'Multiviewer')
       if (!r) return false
       scope.multiviewers = r
       return true
@@ -397,14 +403,14 @@ class Parser {
 
     for (;;) {
       if (this.eatKeyword('Screen')) {
-        const r = this.parseRange(DIMS.screen.min, DIMS.screen.max, 'Screen')
+        const r = this.parseRange(this.DIMS.screen.min, this.DIMS.screen.max, 'Screen')
         if (!r) return undefined
         filter.screens = r
         any = true
         continue
       }
       if (this.eatKeyword('Aux')) {
-        const r = this.parseRange(DIMS.aux.min, DIMS.aux.max, 'Aux')
+        const r = this.parseRange(this.DIMS.aux.min, this.DIMS.aux.max, 'Aux')
         if (!r) return undefined
         filter.auxes = r
         any = true
@@ -657,13 +663,22 @@ function describe(t: Token | undefined): string {
   }
 }
 
-export function parse(input: string): ParseResult {
+export interface ParseOptions {
+  /**
+   * Which switcher the numbers are for. The parser resolves ranges and
+   * refuses ones the platform does not have — `Screen 5` is a valid screen
+   * on an Aquilon and does not exist on a Pulse 4K. LivePremier when unsaid.
+   */
+  readonly platform?: Platform
+}
+
+export function parse(input: string, opts: ParseOptions = {}): ParseResult {
   const { tokens, errors: lexErrors } = lex(input)
   if (lexErrors.length > 0) {
     return { ok: false, errors: lexErrors }
   }
 
-  const parser = new Parser(tokens, input.length)
+  const parser = new Parser(tokens, input.length, opts.platform ?? LIVEPREMIER)
   const command = parser.parseCommand()
   if (!command || parser.errors.length > 0) {
     return {

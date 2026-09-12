@@ -235,6 +235,107 @@ export const BUILTIN_PARAMS: ParamTable = {
   screenGroup: BUILTIN_GROUP_PARAMS,
 }
 
+/*
+ * The same vouched-for set on Midra 4K / Alta 4K, where the spellings differ.
+ *
+ * Read off a live Pulse 4K (3.3.10) and its bundle's attribute tables: the
+ * source is `input` and takes `INPUT_1`..`INPUT_16`, size is a node of its
+ * own, position spans ±67268, there is no anchor, and the take group has one
+ * `takeTime` and no up/down pair. Ids are still the store tail, so a
+ * catalogue generated from a Midra bundle slots in over these unchanged.
+ */
+const midraSourceValues = (): string[] => {
+  const out = ['NONE']
+  for (let i = 1; i <= 16; i++) out.push(`INPUT_${i}`)
+  out.push('COLOR')
+  return out
+}
+
+export const BUILTIN_MIDRA_LAYER_PARAMS: readonly ParamSpec[] = [
+  {
+    id: 'source.input',
+    path: ['source', 'pp', 'input'],
+    type: 'enum',
+    enum: 'LAYER_CONTENT',
+    values: midraSourceValues(),
+    summary: 'Which input the layer shows. INPUT_1 to INPUT_16, NONE or COLOR.',
+  },
+  {
+    id: 'position.posH',
+    path: ['position', 'pp', 'posH'],
+    type: 'int',
+    min: -67_268,
+    max: 67_268,
+    summary: 'Horizontal centre of the layer, in pixels. Negative is normal.',
+  },
+  {
+    id: 'position.posV',
+    path: ['position', 'pp', 'posV'],
+    type: 'int',
+    min: -67_268,
+    max: 67_268,
+    summary: 'Vertical centre of the layer, in pixels.',
+  },
+  {
+    id: 'size.sizeH',
+    path: ['size', 'pp', 'sizeH'],
+    type: 'int',
+    min: 0,
+    max: 65_535,
+    summary: 'Layer width in pixels.',
+  },
+  {
+    id: 'size.sizeV',
+    path: ['size', 'pp', 'sizeV'],
+    type: 'int',
+    min: 0,
+    max: 65_535,
+    summary: 'Layer height in pixels.',
+  },
+  {
+    id: 'opacity.opacity',
+    path: ['opacity', 'pp', 'opacity'],
+    type: 'int',
+    min: 0,
+    max: 256,
+    summary: 'Layer opacity. The range is 0–256, not 0–100.',
+  },
+]
+
+export const BUILTIN_MIDRA_GROUP_PARAMS: readonly ParamSpec[] = [
+  { id: 'control.xTake', path: ['control', 'pp', 'xTake'], type: 'bool', summary: 'Transition preview to program.' },
+  { id: 'control.xCut', path: ['control', 'pp', 'xCut'], type: 'bool', summary: 'Swap preview and program with no transition.' },
+  { id: 'control.xTakeAbort', path: ['control', 'pp', 'xTakeAbort'], type: 'bool', summary: 'Stop a transition in progress.' },
+  { id: 'control.xStepBack', path: ['control', 'pp', 'xStepBack'], type: 'bool', summary: 'Undo the last take.' },
+  {
+    id: 'control.xCopyProgramToPreview',
+    path: ['control', 'pp', 'xCopyProgramToPreview'],
+    type: 'bool',
+    summary: 'Copy what is on air back into preview.',
+  },
+  {
+    id: 'control.takeTime',
+    path: ['control', 'pp', 'takeTime'],
+    type: 'int',
+    min: 0,
+    max: 3000,
+    summary: 'Transition time, in tenths of a second. One value serves both directions.',
+  },
+  {
+    id: 'control.tbarPosition',
+    path: ['control', 'pp', 'tbarPosition'],
+    type: 'int',
+    min: 0,
+    max: 65535,
+    summary: 'T-bar position. Full throw completes the transition.',
+  },
+]
+
+export const BUILTIN_MIDRA_PARAMS: ParamTable = {
+  layer: BUILTIN_MIDRA_LAYER_PARAMS,
+  screenGroup: BUILTIN_MIDRA_GROUP_PARAMS,
+}
+
 /** The address tail for a parameter: dots become slashes. */
 export const paramAddress = (id: string): string => id.split('.').join('/')
 

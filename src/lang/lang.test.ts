@@ -219,7 +219,7 @@ describe('master store and record masks', () => {
     const pgm = run('Store Master 12').ops[0]
     expect(pgm.value).toBe('SAVE_FROM_PGM')
     const pvw = run('Store Master 12 Preview').ops[0]
-    expect(pvw.value).toBe('SAVE_FROM_PVW')
+    expect(pvw.value).toBe('SAVE_FROM_PRW')
   })
 
   it('refuses a mask on a bank that has none rather than ignoring it', () => {

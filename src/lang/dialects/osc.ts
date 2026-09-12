@@ -58,31 +58,11 @@
  */
 
 import type { Op } from '../compile.ts'
-import {
-  DIMS,
-  SLOTS,
-  layerMemoryLoad,
-  layerMemorySave,
-  layerParamPath,
-  masterMemoryLoad,
-  masterMemorySave,
-  memoryDelete,
-  memoryLabel,
-  monitoringMemoryLoad,
-  monitoringMemorySave,
-  screenGroupParamPath,
-  screenMemoryLoad,
-  screenMemorySave,
-  takePath,
-  type BankKind,
-  type PresetBuffer,
-  type PresetMode,
-  type Target,
-} from '../model.ts'
+import { type BankKind, type PresetMode, type Target } from '../model.ts'
 import type { Path } from '../paths.ts'
+import { LIVEPREMIER, type Platform } from '../platforms.ts'
 
 import {
-  BUILTIN_PARAMS,
   coerce,
   denormalise,
   findParam,
@@ -106,9 +86,12 @@ export const ROOT = '/lp'
  * it, which is better than a layer move landing in the wrong buffer.
  */
 export interface OscContext {
-  readonly buffer?: (target: Target, mode: PresetMode) => PresetBuffer | undefined
-  /** The parameter table to resolve against. Defaults to the built-ins. */
+  /** A letter on LivePremier, `UP`/`DOWN` on Midra 4K. */
+  readonly buffer?: (target: Target, mode: PresetMode) => string | undefined
+  /** The parameter table to resolve against. Defaults to the platform's built-ins. */
   readonly params?: ParamTable
+  /** Which switcher the addresses are for. LivePremier when unsaid. */
+  readonly platform?: Platform
 }
 
 export interface OscMessage {
@@ -201,6 +184,7 @@ export function resolve(msg: OscMessage, ctx: OscContext = {}): RunResult {
 const SKIPPED = Symbol('released')
 
 function dispatch(msg: OscMessage, ctx: OscContext): Op[] | typeof SKIPPED {
+  const p = ctx.platform ?? LIVEPREMIER
   const segs = msg.address.split('/').filter((s) => s !== '')
   if (segs.length === 0) throw new Error('empty address')
   if (`/${segs[0]}` !== ROOT) {
@@ -212,13 +196,13 @@ function dispatch(msg: OscMessage, ctx: OscContext): Op[] | typeof SKIPPED {
 
   switch (head) {
     case 'screen':
-      return target({ kind: 'screen' }, rest, msg, ctx)
+      return target(p, { kind: 'screen' }, rest, msg, ctx)
     case 'aux':
-      return target({ kind: 'aux' }, rest, msg, ctx)
+      return target(p, { kind: 'aux' }, rest, msg, ctx)
     case 'master':
-      return master(rest, msg)
+      return master(p, rest, msg)
     case 'multiviewer':
-      return multiviewer(rest, msg)
+      return multiviewer(p, rest, msg)
     default:
       throw new Error(
         `unknown address ${msg.address} — after ${ROOT} comes screen, aux, master or multiviewer`,
@@ -229,12 +213,13 @@ function dispatch(msg: OscMessage, ctx: OscContext): Op[] | typeof SKIPPED {
 // ---------------------------------------------------------------------------
 
 function target(
+  p: Platform,
   kind: { kind: 'screen' | 'aux' },
   segs: string[],
   msg: OscMessage,
   ctx: OscContext,
 ): Op[] | typeof SKIPPED {
-  const n = index(segs.shift(), kind.kind, DIMS[kind.kind].min, DIMS[kind.kind].max)
+  const n = index(segs.shift(), kind.kind, p.dims[kind.kind].min, p.dims[kind.kind].max)
   const t: Target = { kind: kind.kind, n }
   const what = segs.shift()
 
@@ -244,24 +229,24 @@ function target(
        for, and `/lp/screen/1/take` reads better on a button than
        `/lp/screen/1/group/control/xTake`. Both work. */
     case 'take':
-      return trigger(msg, () => [op(takePath(t), true, `Take ${label(t)}`)])
+      return trigger(msg, () => [op(p.paths.take(t), true, `Take ${label(t)}`)])
     case 'cut':
       return trigger(msg, () => [
-        op(groupPath(t, 'control.xCut', ctx), true, `Cut ${label(t)}`),
+        op(groupPath(p, t, 'control.xCut', ctx), true, `Cut ${label(t)}`),
       ])
 
     case 'memory':
-      return memory(t, kind.kind, segs, msg)
+      return memory(p, t, kind.kind, segs, msg)
 
     case 'layer':
-      return layer(t, segs, msg)
+      return layer(p, t, segs, msg)
 
     case 'preset':
-      return preset(t, segs, msg, ctx)
+      return preset(p, t, segs, msg, ctx)
 
     case 'group': {
-      const found = lookup(table(ctx).screenGroup, segs, 'screen group')
-      const path = screenGroupParamPath(t, found.spec.path)
+      const found = lookup(table(p, ctx).screenGroup, segs, 'screen group')
+      const path = p.paths.transitionParam(t, found.spec.path)
       return parameter(found.spec, path, found.normalised, msg, label(t))
     }
 
@@ -273,31 +258,31 @@ function target(
 }
 
 /** A memory on a screen or aux: recall, store, label, delete. */
-function memory(t: Target, bank: BankKind, segs: string[], msg: OscMessage): Op[] | typeof SKIPPED {
-  const slot = index(segs.shift(), 'memory', SLOTS[bank].min, SLOTS[bank].max)
+function memory(p: Platform, t: Target, bank: BankKind, segs: string[], msg: OscMessage): Op[] | typeof SKIPPED {
+  const slot = index(segs.shift(), 'memory', ...slotRange(p, bank))
   const verb = segs.shift()
 
   switch (verb) {
     case 'recall': {
       const mode = presetMode(segs.shift(), msg, 'PREVIEW')
       return trigger(msg, () => [
-        op(screenMemoryLoad(slot, t, mode), true, `Recall memory ${slot} → ${label(t)} ${mode.toLowerCase()}`),
+        op(p.paths.screenMemoryLoad(slot, t, mode), true, `Recall memory ${slot} → ${label(t)} ${mode.toLowerCase()}`),
       ])
     }
     case 'store': {
       const mode = presetMode(segs.shift(), msg, 'PROGRAM')
       return trigger(msg, () => [
-        op(screenMemorySave(slot, t, mode), true, `Store memory ${slot} ← ${label(t)} ${mode.toLowerCase()}`),
+        op(p.paths.screenMemorySave(slot, t, mode), true, `Store memory ${slot} ← ${label(t)} ${mode.toLowerCase()}`),
       ])
     }
     case 'label': {
       const text = msg.args[0]
       if (typeof text !== 'string') throw new Error('a label needs a string argument')
-      return [op(memoryLabel(bank, slot), text, `Label ${bank} memory ${slot} "${text}"`)]
+      return [op(p.paths.memoryLabel(bank, slot), text, `Label ${bank} memory ${slot} "${text}"`)]
     }
     case 'delete':
       return trigger(msg, () => [
-        op(memoryDelete(bank, slot), true, `Delete ${bank} memory ${slot}`),
+        op(p.paths.memoryDelete(bank, slot), true, `Delete ${bank} memory ${slot}`),
       ])
     default:
       throw new Error(`unknown memory action ${verb ?? '(missing)'} — expected recall, store, label or delete`)
@@ -305,54 +290,56 @@ function memory(t: Target, bank: BankKind, segs: string[], msg: OscMessage): Op[
 }
 
 /** `/screen/<n>/layer/<l>/memory/<slot>/…` — the layer memory bank. */
-function layer(t: Target, segs: string[], msg: OscMessage): Op[] | typeof SKIPPED {
-  const l = layerKeyOf(segs.shift())
+function layer(p: Platform, t: Target, segs: string[], msg: OscMessage): Op[] | typeof SKIPPED {
+  const l = layerKeyOf(p, segs.shift())
   if (segs.shift() !== 'memory') {
     throw new Error(
       `after ${ROOT}/${t.kind}/${t.n}/layer/${l} comes memory — a live layer parameter is addressed through /preset/<mode>/layer/${l}`,
     )
   }
-  const slot = index(segs.shift(), 'memory', SLOTS.layer.min, SLOTS.layer.max)
+  const slot = index(segs.shift(), 'memory', ...slotRange(p, 'layer'))
   const verb = segs.shift()
+  const load = p.paths.layerMemoryLoad!
+  const save = p.paths.layerMemorySave!
 
   if (verb === 'recall') {
     const mode = presetMode(segs.shift(), msg, 'PREVIEW')
     return trigger(msg, () => [
-      op(layerMemoryLoad(slot, t, mode, l), true, `Recall layer memory ${slot} → ${label(t)} layer ${l} ${mode.toLowerCase()}`),
+      op(load(slot, t, mode, l), true, `Recall layer memory ${slot} → ${label(t)} layer ${l} ${mode.toLowerCase()}`),
     ])
   }
   if (verb === 'store') {
     const mode = presetMode(segs.shift(), msg, 'PROGRAM')
     return trigger(msg, () => [
-      op(layerMemorySave(slot, t, mode, l), true, `Store layer memory ${slot} ← ${label(t)} layer ${l} ${mode.toLowerCase()}`),
+      op(save(slot, t, mode, l), true, `Store layer memory ${slot} ← ${label(t)} layer ${l} ${mode.toLowerCase()}`),
     ])
   }
   throw new Error(`unknown layer memory action ${verb ?? '(missing)'} — expected recall or store`)
 }
 
 /** `/screen/<n>/preset/<mode>/layer/<l>/<param…>` — a live layer parameter. */
-function preset(t: Target, segs: string[], msg: OscMessage, ctx: OscContext): Op[] | typeof SKIPPED {
-  const buffer = presetBuffer(t, segs.shift(), ctx)
+function preset(p: Platform, t: Target, segs: string[], msg: OscMessage, ctx: OscContext): Op[] | typeof SKIPPED {
+  const buffer = presetBuffer(p, t, segs.shift(), ctx)
   if (segs.shift() !== 'layer') {
     throw new Error(`after ${ROOT}/${t.kind}/${t.n}/preset/<mode> comes layer/<n>`)
   }
-  const l = layerKeyOf(segs.shift())
+  const l = layerKeyOf(p, segs.shift())
 
-  const spec = lookup(table(ctx).layer, segs, 'layer')
-  const path = layerParamPath(t, buffer, l, spec.spec.path)
+  const spec = lookup(table(p, ctx).layer, segs, 'layer')
+  const path = p.paths.layerParam(t, buffer, l, spec.spec.path)
   return parameter(spec.spec, path, spec.normalised, msg, `${label(t)} preset ${buffer} layer ${l}`)
 }
 
-function master(segs: string[], msg: OscMessage): Op[] | typeof SKIPPED {
+function master(p: Platform, segs: string[], msg: OscMessage): Op[] | typeof SKIPPED {
   if (segs.shift() !== 'memory') throw new Error(`after ${ROOT}/master comes memory/<slot>`)
-  const slot = index(segs.shift(), 'memory', SLOTS.master.min, SLOTS.master.max)
+  const slot = index(segs.shift(), 'memory', ...slotRange(p, 'master'))
   const verb = segs.shift()
 
   switch (verb) {
     case 'recall': {
       const mode = presetMode(segs.shift(), msg, 'PREVIEW')
       return trigger(msg, () => [
-        op(masterMemoryLoad(slot, mode), true, `Recall master memory ${slot} → ${mode.toLowerCase()}`),
+        op(p.paths.masterMemoryLoad(slot, mode), true, `Recall master memory ${slot} → ${mode.toLowerCase()}`),
       ])
     }
     case 'store':
@@ -360,34 +347,34 @@ function master(segs: string[], msg: OscMessage): Op[] | typeof SKIPPED {
          mask instead, and the grammar writes it before firing. An OSC store
          fires the bank's default mask rather than composing one. */
       return trigger(msg, () => [
-        op(masterMemorySave(slot), true, `Store master memory ${slot}`),
+        op(p.paths.masterMemorySave(slot), true, `Store master memory ${slot}`),
       ])
     case 'label': {
       const text = msg.args[0]
       if (typeof text !== 'string') throw new Error('a label needs a string argument')
-      return [op(memoryLabel('master', slot), text, `Label master memory ${slot} "${text}"`)]
+      return [op(p.paths.memoryLabel('master', slot), text, `Label master memory ${slot} "${text}"`)]
     }
     case 'delete':
-      return trigger(msg, () => [op(memoryDelete('master', slot), true, `Delete master memory ${slot}`)])
+      return trigger(msg, () => [op(p.paths.memoryDelete('master', slot), true, `Delete master memory ${slot}`)])
     default:
       throw new Error(`unknown master action ${verb ?? '(missing)'} — expected recall, store, label or delete`)
   }
 }
 
-function multiviewer(segs: string[], msg: OscMessage): Op[] | typeof SKIPPED {
-  const out = index(segs.shift(), 'output', DIMS.multiviewer.min, DIMS.multiviewer.max)
+function multiviewer(p: Platform, segs: string[], msg: OscMessage): Op[] | typeof SKIPPED {
+  const out = index(segs.shift(), 'output', p.dims.multiviewer.min, p.dims.multiviewer.max)
   if (segs.shift() !== 'memory') throw new Error(`after ${ROOT}/multiviewer/<n> comes memory/<slot>`)
-  const slot = index(segs.shift(), 'memory', SLOTS.multiviewer.min, SLOTS.multiviewer.max)
+  const slot = index(segs.shift(), 'memory', ...slotRange(p, 'multiviewer'))
   const verb = segs.shift()
 
   if (verb === 'recall') {
     return trigger(msg, () => [
-      op(monitoringMemoryLoad(slot, out), true, `Recall multiviewer memory ${slot} → output ${out}`),
+      op(p.paths.monitoringMemoryLoad(slot, out), true, `Recall multiviewer memory ${slot} → output ${out}`),
     ])
   }
   if (verb === 'store') {
     return trigger(msg, () => [
-      op(monitoringMemorySave(slot, out), true, `Store multiviewer memory ${slot} ← output ${out}`),
+      op(p.paths.monitoringMemorySave(slot, out), true, `Store multiviewer memory ${slot} ← output ${out}`),
     ])
   }
   throw new Error(`unknown multiviewer action ${verb ?? '(missing)'} — expected recall or store`)
@@ -401,7 +388,18 @@ const op = (path: Path, value: unknown, describe: string): Op => ({ path, value,
 
 const label = (t: Target) => `${t.kind === 'screen' ? 'screen' : 'aux'} ${t.n}`
 
-const table = (ctx: OscContext): ParamTable => ctx.params ?? BUILTIN_PARAMS
+const table = (p: Platform, ctx: OscContext): ParamTable => ctx.params ?? p.builtinParams
+
+/** `a, b or c` — the last item joined with "or", as a sentence has it. */
+const orList = (items: readonly string[]): string =>
+  items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} or ${items[items.length - 1]}`
+
+/** A bank's slot range on this platform, or a refusal naming the platform. */
+function slotRange(p: Platform, bank: BankKind): [number, number] {
+  const r = p.slots[bank]
+  if (!r) throw new Error(`${p.name} has no ${bank} memory bank`)
+  return [r.min, r.max]
+}
 
 /**
  * Fire, or do nothing, depending on the argument.
@@ -425,11 +423,14 @@ function index(raw: string | undefined, what: string, min: number, max: number):
   return n
 }
 
-/** `NATIVE` is a layer too, and it is spelled out rather than numbered. */
-function layerKeyOf(raw: string | undefined): number | 'NATIVE' {
+/** `NATIVE` is a layer too on LivePremier, and it is spelled out rather than numbered. */
+function layerKeyOf(p: Platform, raw: string | undefined): number | 'NATIVE' {
   if (raw === undefined) throw new Error('missing layer')
-  if (raw.toUpperCase() === 'NATIVE') return 'NATIVE'
-  return index(raw, 'layer', DIMS.layer.min, DIMS.layer.max)
+  if (raw.toUpperCase() === 'NATIVE') {
+    if (!p.nativeLayer) throw new Error(`${p.name} has no NATIVE layer — layers are ${p.dims.layer.min} to ${p.dims.layer.max}`)
+    return 'NATIVE'
+  }
+  return index(raw, 'layer', p.dims.layer.min, p.dims.layer.max)
 }
 
 /**
@@ -457,15 +458,17 @@ function presetMode(seg: string | undefined, msg: OscMessage, fallback: PresetMo
  * the device's take state, and the refusal when it is missing says which fact
  * is missing rather than "cannot compile".
  */
-function presetBuffer(t: Target, raw: string | undefined, ctx: OscContext): PresetBuffer {
-  if (raw === undefined) throw new Error('missing preset — expected preview, program, a, b or c')
+function presetBuffer(p: Platform, t: Target, raw: string | undefined, ctx: OscContext): string {
+  const literals = orList(p.buffers.map((b) => b.toLowerCase()))
+  if (raw === undefined) throw new Error(`missing preset — expected preview, program, ${literals}`)
   const up = raw.toUpperCase()
-  if (up === 'A' || up === 'B' || up === 'C') return up
+  const literal = p.buffers.find((b) => b.toUpperCase() === up)
+  if (literal) return literal
   const mode = presetMode(raw, { address: '', args: [] }, 'PREVIEW')
   const buffer = ctx.buffer?.(t, mode)
   if (!buffer) {
     throw new Error(
-      `cannot tell which buffer is ${mode.toLowerCase()} on ${label(t)} — the device's take state is not known here. Address the buffer directly with /a, /b or /c.`,
+      `cannot tell which buffer is ${mode.toLowerCase()} on ${label(t)} — the device's take state is not known here. Address the buffer directly with ${orList(p.buffers.map((b) => '/' + b.toLowerCase()))}.`,
     )
   }
   return buffer
@@ -536,10 +539,10 @@ function parameter(
   return [op(path, value, `${where} ${spec.id} = ${String(value)}`)]
 }
 
-function groupPath(t: Target, id: string, ctx: OscContext): Path {
-  const spec = findParam(table(ctx).screenGroup, id)
+function groupPath(p: Platform, t: Target, id: string, ctx: OscContext): Path {
+  const spec = findParam(table(p, ctx).screenGroup, id)
   if (!spec) throw new Error(`this dictionary has no screen group parameter ${id}`)
-  return screenGroupParamPath(t, spec.path)
+  return p.paths.transitionParam(t, spec.path)
 }
 
 // ---------------------------------------------------------------------------
@@ -561,15 +564,20 @@ export interface OscEntry {
  * does not implement, and cannot miss one it does. `{n}` and `{slot}` are
  * placeholders, with their ranges in the summary.
  */
-export function dictionary(params: ParamTable = BUILTIN_PARAMS): OscEntry[] {
+export function dictionary(params?: ParamTable, platform: Platform = LIVEPREMIER): OscEntry[] {
+  const p = platform
+  params ??= p.builtinParams
   const out: OscEntry[] = []
   const push = (group: string, address: string, args: string, summary: string) =>
     out.push({ group, address, args, summary })
+  const DIMS = p.dims
+  const SLOTS = p.slots
+  const buffers = p.buffers.map((b) => b.toLowerCase()).join('|')
 
   for (const kind of ['screen', 'aux'] as const) {
     const g = kind === 'screen' ? 'Screens' : 'Auxiliary screens'
     const d = DIMS[kind]
-    const s = SLOTS[kind]
+    const s = SLOTS[kind]!
     const range = `${kind} is ${d.min}–${d.max}`
 
     push(g, `${ROOT}/${kind}/{n}/take`, 'none, or 1 to fire', `Transition preview to program. ${range}.`)
@@ -584,13 +592,15 @@ export function dictionary(params: ParamTable = BUILTIN_PARAMS): OscEntry[] {
       'The same, saying which preset to take the look from.')
     push(g, `${ROOT}/${kind}/{n}/memory/{slot}/label`, 'string', 'Rename a memory.')
     push(g, `${ROOT}/${kind}/{n}/memory/{slot}/delete`, 'none, or 1 to fire', 'Empty a memory slot.')
-    push(g, `${ROOT}/${kind}/{n}/layer/{l}/memory/{slot}/recall`, 'none, or 1 to fire',
-      `Recall a layer memory. Layers ${DIMS.layer.min}–${DIMS.layer.max} or NATIVE; slots ${SLOTS.layer.min}–${SLOTS.layer.max}.`)
-    push(g, `${ROOT}/${kind}/{n}/layer/{l}/memory/{slot}/store`, 'none, or 1 to fire', 'Store a layer memory.')
+    if (SLOTS.layer) {
+      push(g, `${ROOT}/${kind}/{n}/layer/{l}/memory/{slot}/recall`, 'none, or 1 to fire',
+        `Recall a layer memory. Layers ${DIMS.layer.min}–${DIMS.layer.max}${p.nativeLayer ? ' or NATIVE' : ''}; slots ${SLOTS.layer.min}–${SLOTS.layer.max}.`)
+      push(g, `${ROOT}/${kind}/{n}/layer/{l}/memory/{slot}/store`, 'none, or 1 to fire', 'Store a layer memory.')
+    }
   }
 
   push('Master', `${ROOT}/master/memory/{slot}/recall`, 'none, or 1 to fire',
-    `Recall a master memory into preview. Slots ${SLOTS.master.min}–${SLOTS.master.max}.`)
+    `Recall a master memory into preview. Slots ${SLOTS.master!.min}–${SLOTS.master!.max}.`)
   push('Master', `${ROOT}/master/memory/{slot}/recall/{preview|program}`, 'none, or 1 to fire',
     'The same, saying which preset.')
   push('Master', `${ROOT}/master/memory/{slot}/store`, 'none, or 1 to fire',
@@ -599,13 +609,13 @@ export function dictionary(params: ParamTable = BUILTIN_PARAMS): OscEntry[] {
   push('Master', `${ROOT}/master/memory/{slot}/delete`, 'none, or 1 to fire', 'Empty a master memory slot.')
 
   push('Multiviewer', `${ROOT}/multiviewer/{out}/memory/{slot}/recall`, 'none, or 1 to fire',
-    `Recall a multiviewer layout onto an output. Outputs ${DIMS.multiviewer.min}–${DIMS.multiviewer.max}, slots ${SLOTS.multiviewer.min}–${SLOTS.multiviewer.max}.`)
+    `Recall a multiviewer layout onto an output. Outputs ${DIMS.multiviewer.min}–${DIMS.multiviewer.max}, slots ${SLOTS.multiviewer!.min}–${SLOTS.multiviewer!.max}.`)
   push('Multiviewer', `${ROOT}/multiviewer/{out}/memory/{slot}/store`, 'none, or 1 to fire',
     'Store a multiviewer layout.')
 
   for (const spec of params.layer) {
     if (spec.readOnly) continue
-    const address = `${ROOT}/screen/{n}/preset/{preview|program|a|b|c}/layer/{l}/${paramAddress(spec.id)}`
+    const address = `${ROOT}/screen/{n}/preset/{preview|program|${buffers}}/layer/{l}/${paramAddress(spec.id)}`
     push('Layer parameters', address, argsFor(spec), spec.summary ?? describe(spec))
     if (scalable(spec)) {
       push('Layer parameters', `${address}/norm`, 'float 0–1',

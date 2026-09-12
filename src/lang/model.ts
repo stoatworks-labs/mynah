@@ -62,8 +62,12 @@ export const CATEGORIES = [
 
 export type Category = (typeof CATEGORIES)[number]
 
-/** Where a master store draws its values from. */
-export type SaveMode = 'SAVE_FROM_PGM' | 'SAVE_FROM_PVW'
+/**
+ * Where a master store draws its values from. `PRW`, the device's own
+ * abbreviation for preview — `SAVE_FROM_PVW` is not a member of the enum and
+ * is refused without a word.
+ */
+export type SaveMode = 'SAVE_FROM_PGM' | 'SAVE_FROM_PRW'
 
 /**
  * The three fixed preset buffers.

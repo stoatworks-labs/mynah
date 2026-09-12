@@ -16,6 +16,15 @@ export { AUDIO, CATEGORIES, DIMS, SLOTS, VERIFIED_FIRMWARE } from './model.ts'
 export { Path } from './paths.ts'
 
 /*
+ * The two platforms the grammar compiles for. A host that knows which switcher
+ * it is talking to passes one as `platform` in the run/compile context; one
+ * that does not gets LivePremier, exactly as before there was a choice.
+ */
+export { LIVEPREMIER, MIDRA, PLATFORMS, platformFor, midraBufferForMode } from './platforms.ts'
+export type { Platform, PlatformId, PlatformPaths } from './platforms.ts'
+export type { ParseOptions } from './parser.ts'
+
+/*
  * The other three command languages, and the OSC dictionary.
  *
  * `run()` is what a console should call: it takes a line in any of the four
@@ -38,6 +47,9 @@ export {
   BUILTIN_PARAMS,
   BUILTIN_LAYER_PARAMS,
   BUILTIN_GROUP_PARAMS,
+  BUILTIN_MIDRA_PARAMS,
+  BUILTIN_MIDRA_LAYER_PARAMS,
+  BUILTIN_MIDRA_GROUP_PARAMS,
   LANGUAGES,
   LANGUAGE_LABELS,
 } from './dialects/index.ts'

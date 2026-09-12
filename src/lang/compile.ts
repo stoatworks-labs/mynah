@@ -15,34 +15,12 @@ import {
   audioRxMute,
   audioSourceKey,
   audioTxProp,
-  CATEGORIES,
-  DIMS,
-  SLOTS,
-  layerMemoryLoad,
-  layerMemorySave,
-  masterMemoryLoad,
-  masterMemorySave,
-  masterSaveProp,
-  memoryDelete,
-  memoryLabel,
-  monitoringMemoryLoad,
-  monitoringMemorySave,
-  screenKey,
-  auxKey,
-  screenMemoryLoad,
-  screenMemorySave,
-  takePath,
-  layerSource,
-  layerPosition,
-  layerOpacity,
-  LAYER,
-  SOURCES,
-  type PresetBuffer,
   type BankKind,
   type PresetMode,
   type Target,
 } from './model.ts'
 import type { Path } from './paths.ts'
+import { LIVEPREMIER, type Platform } from './platforms.ts'
 
 export interface Op {
   readonly path: Path
@@ -98,8 +76,11 @@ const DEFAULT_STORE_MODE: PresetMode = 'PROGRAM'
  * would put a layer somewhere the operator did not ask for.
  */
 export interface DeviceFacts {
-  /** Which buffer a preset mode names on this screen, if known. */
-  buffer(target: Target, mode: PresetMode): PresetBuffer | undefined
+  /**
+   * Which buffer a preset mode names on this screen, if known — a letter on
+   * LivePremier (`A`/`B`/`C`), `UP` or `DOWN` on Midra 4K.
+   */
+  buffer(target: Target, mode: PresetMode): string | undefined
   /** The screen's canvas in pixels, if known. */
   canvas(target: Target): { readonly w: number; readonly h: number } | undefined
 }
@@ -109,13 +90,32 @@ export interface CompileContext {
   readonly selection?: Selection
   /** Live device state, needed only by `Set`. */
   readonly facts?: DeviceFacts
+  /**
+   * Which switcher the writes are for. LivePremier when unsaid, so every
+   * caller that predates the second platform compiles what it always did.
+   * See `platforms.ts`.
+   */
+  readonly platform?: Platform
 }
 
 export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
   const errors: CompileError[] = []
   const fail = (message: string): CompileResult => ({ ok: false, errors: [{ message }] })
+  const p = ctx.platform ?? LIVEPREMIER
+  const paths = p.paths
 
-  if (cmd.audio) return compileAudio(cmd.audio, ctx, fail)
+  if (cmd.audio) {
+    if (!p.audio) {
+      return fail(`Audio patching is written against LivePremier's matrix, which ${p.name} does not have`)
+    }
+    return compileAudio(cmd.audio, ctx, fail)
+  }
+
+  /* NATIVE is a layer slot on LivePremier and nothing on Midra — refused by
+     name rather than sent to a `$liveLayer/@items/NATIVE` that does not exist. */
+  if (!p.nativeLayer && (cmd.scope.layers?.native || cmd.filter?.layers?.native)) {
+    return fail(`${p.name} has no NATIVE layer — its layers are ${p.dims.layer.min} to ${p.dims.layer.max}`)
+  }
 
   const targets = resolveTargets(cmd.scope, ctx.selection)
   const layers = resolveLayers(cmd.scope, ctx.selection)
@@ -147,7 +147,7 @@ export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
         return fail('Take needs a Screen or Aux, or a sticky scope to inherit')
       }
       const ops = targets.map((t) => ({
-        path: takePath(t),
+        path: paths.take(t),
         value: true,
         describe: `Take ${describeTarget(t)}`,
       }))
@@ -161,13 +161,13 @@ export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
       const mode = cmd.mode ?? DEFAULT_RECALL_MODE
 
       if (cmd.scope.master) {
-        const err = checkSlot('master', cmd.memory)
+        const err = checkSlot(p, 'master', cmd.memory)
         if (err) return fail(err)
         return {
           ok: true,
           ops: [
             {
-              path: masterMemoryLoad(cmd.memory, mode),
+              path: paths.masterMemoryLoad(cmd.memory, mode),
               value: true,
               describe: `Recall Master memory ${cmd.memory} to ${describeMode(mode)}`,
             },
@@ -179,10 +179,10 @@ export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
       }
 
       if (cmd.scope.multiviewers) {
-        const err = checkSlot('multiviewer', cmd.memory)
+        const err = checkSlot(p, 'multiviewer', cmd.memory)
         if (err) return fail(err)
         const ops = cmd.scope.multiviewers.values.map((n) => ({
-          path: monitoringMemoryLoad(cmd.memory!, n),
+          path: paths.monitoringMemoryLoad(cmd.memory!, n),
           value: true,
           describe: `Recall Multiviewer memory ${cmd.memory} to output ${n}`,
         }))
@@ -197,13 +197,14 @@ export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
       // screen-memory one. Same verb, narrower object — which is the whole
       // point of scoping the command line.
       if (layers) {
-        const err = checkSlot('layer', cmd.memory)
+        const err = checkSlot(p, 'layer', cmd.memory)
         if (err) return fail(err)
+        const load = paths.layerMemoryLoad!
         const ops: Op[] = []
         for (const t of targets) {
           for (const l of layers) {
             ops.push({
-              path: layerMemoryLoad(cmd.memory, t, mode, l),
+              path: load(cmd.memory, t, mode, l),
               value: true,
               describe: `Recall Layer memory ${cmd.memory} to ${describeTarget(t)} layer ${l} ${describeMode(mode)}`,
             })
@@ -212,10 +213,10 @@ export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
         return { ok: true, ops, summary: `Recall Layer ${cmd.memory} → ${ops.length} op(s), ${describeMode(mode)}`, bank: 'layer', slot: cmd.memory }
       }
 
-      const err = checkSlot('screen', cmd.memory)
+      const err = checkSlot(p, bankOfTargets(targets), cmd.memory)
       if (err) return fail(err)
       const ops = targets.map((t) => ({
-        path: screenMemoryLoad(cmd.memory!, t, mode),
+        path: paths.screenMemoryLoad(cmd.memory!, t, mode),
         value: true,
         describe: `Recall memory ${cmd.memory} to ${describeTarget(t)} ${describeMode(mode)}`,
       }))
@@ -234,9 +235,9 @@ export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
       const mode = cmd.mode ?? DEFAULT_STORE_MODE
 
       if (cmd.scope.master) {
-        const err = checkSlot('master', cmd.memory)
+        const err = checkSlot(p, 'master', cmd.memory)
         if (err) return fail(err)
-        return compileMasterStore(cmd.memory, mode, cmd.filter)
+        return compileMasterStore(p, cmd.memory, mode, cmd.filter, fail)
       }
 
       // Screen and layer banks carry no filter properties on this firmware.
@@ -246,10 +247,10 @@ export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
       }
 
       if (cmd.scope.multiviewers) {
-        const err = checkSlot('multiviewer', cmd.memory)
+        const err = checkSlot(p, 'multiviewer', cmd.memory)
         if (err) return fail(err)
         const ops = cmd.scope.multiviewers.values.map((n) => ({
-          path: monitoringMemorySave(cmd.memory!, n),
+          path: paths.monitoringMemorySave(cmd.memory!, n),
           value: true,
           describe: `Store output ${n} to Multiviewer memory ${cmd.memory}`,
         }))
@@ -261,13 +262,14 @@ export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
       }
 
       if (layers) {
-        const err = checkSlot('layer', cmd.memory)
+        const err = checkSlot(p, 'layer', cmd.memory)
         if (err) return fail(err)
+        const save = paths.layerMemorySave!
         const ops: Op[] = []
         for (const t of targets) {
           for (const l of layers) {
             ops.push({
-              path: layerMemorySave(cmd.memory, t, mode, l),
+              path: save(cmd.memory, t, mode, l),
               value: true,
               describe: `Store ${describeTarget(t)} layer ${l} ${describeMode(mode)} to Layer memory ${cmd.memory}`,
             })
@@ -276,10 +278,10 @@ export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
         return { ok: true, ops, summary: `Store Layer ${cmd.memory} ← ${ops.length} op(s), from ${describeMode(mode)}` }
       }
 
-      const err = checkSlot('screen', cmd.memory)
+      const err = checkSlot(p, bankOfTargets(targets), cmd.memory)
       if (err) return fail(err)
       const ops = targets.map((t) => ({
-        path: screenMemorySave(cmd.memory!, t, mode),
+        path: paths.screenMemorySave(cmd.memory!, t, mode),
         value: true,
         describe: `Store ${describeTarget(t)} ${describeMode(mode)} to memory ${cmd.memory}`,
       }))
@@ -296,8 +298,19 @@ export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
       if (targets.length === 0) {
         return fail('Set needs a Screen or Aux, or a sticky scope to inherit')
       }
-      if (!layers) {
+      /*
+       * A destination with no layers to name: an auxiliary screen on Midra,
+       * whose preset is one background source. `Set Aux 1 Source 3` means
+       * that source, and only the source — an aux has no size or position.
+       * Everywhere else, and for every other assignment, a layer is required.
+       */
+      const layerless =
+        !layers && paths.destinationSource !== undefined && targets.every((t) => t.kind === 'aux')
+      if (!layers && !layerless) {
         return fail('Set needs a Layer — these are layer parameters, not screen ones')
+      }
+      if (layerless && (cmd.set.size || cmd.set.position || cmd.set.opacity)) {
+        return fail(`An auxiliary screen on ${p.name} has a source and nothing else to set — size, position and opacity need a Screen and a Layer`)
       }
       // Live parameters are per-buffer, and preview is the safe default here
       // for the same reason it is on a recall: an under-specified command must
@@ -316,9 +329,19 @@ export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
             `Cannot tell which buffer is ${describeMode(mode)} on ${describeTarget(t)} yet — the device has not reported its take state`,
           )
         }
+        if (layerless) {
+          const value = p.sourceValue(cmd.set.source!.family, cmd.set.source!.n)
+          if (value.startsWith('!')) return fail(value.slice(1))
+          ops.push({
+            path: paths.destinationSource!(t, buffer),
+            value,
+            describe: `Source ${value} on ${describeTarget(t)}`,
+          })
+          continue
+        }
         const canvas = facts.canvas(t)
-        for (const l of layers) {
-          const err = assignmentOps(ops, cmd.set, t, buffer, l, canvas)
+        for (const l of layers!) {
+          const err = assignmentOps(p, ops, cmd.set, t, buffer, l, canvas)
           if (err) return fail(err)
         }
       }
@@ -326,7 +349,9 @@ export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
       return {
         ok: true,
         ops,
-        summary: `Set ${describeAssignment(cmd.set)} on ${targets.map(describeTarget).join(', ')} layer ${layers.join(', ')} ${describeMode(mode)}`,
+        summary: layerless
+          ? `Set source on ${targets.map(describeTarget).join(', ')} ${describeMode(mode)}`
+          : `Set ${describeAssignment(cmd.set)} on ${targets.map(describeTarget).join(', ')} layer ${layers!.join(', ')} ${describeMode(mode)}`,
       }
     }
 
@@ -334,13 +359,13 @@ export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
     case 'Delete': {
       if (cmd.memory === undefined) return fail('Delete needs a Memory number')
       const bank = bankOf(cmd.scope, layers)
-      const err = checkSlot(bank, cmd.memory)
+      const err = checkSlot(p, bank, cmd.memory)
       if (err) return fail(err)
       return {
         ok: true,
         ops: [
           {
-            path: memoryDelete(bank, cmd.memory),
+            path: paths.memoryDelete(bank, cmd.memory),
             value: true,
             describe: `Delete ${bank} memory ${cmd.memory}`,
           },
@@ -354,13 +379,13 @@ export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
       if (cmd.memory === undefined) return fail('Label needs a Memory number')
       if (cmd.label === undefined) return fail('Label needs text in quotes, e.g. Label Memory 5 "Wide Open"')
       const bank = bankOf(cmd.scope, layers)
-      const err = checkSlot(bank, cmd.memory)
+      const err = checkSlot(p, bank, cmd.memory)
       if (err) return fail(err)
       return {
         ok: true,
         ops: [
           {
-            path: memoryLabel(bank, cmd.memory),
+            path: paths.memoryLabel(bank, cmd.memory),
             value: cmd.label,
             describe: `Label ${bank} memory ${cmd.memory} "${cmd.label}"`,
           },
@@ -385,12 +410,36 @@ export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
  * ordering on a single connection, which is what makes this safe to send as
  * one burst rather than waiting for each echo.
  */
-function compileMasterStore(slot: number, mode: PresetMode, filter?: Filter): CompileResult {
+function compileMasterStore(
+  p: Platform,
+  slot: number,
+  mode: PresetMode,
+  filter: Filter | undefined,
+  fail: (message: string) => CompileResult,
+): CompileResult {
   const ops: Op[] = []
 
-  const saveMode = mode === 'PROGRAM' ? 'SAVE_FROM_PGM' : 'SAVE_FROM_PVW'
+  /* A category the operator named that this platform's banks do not have is
+     refused, not dropped: a mask that silently lost `Keyer` would store more
+     than the operator said. */
+  if (filter?.categories) {
+    const unknown = filter.categories.filter((c) => !p.categories.includes(c))
+    if (unknown.length) {
+      return fail(`${p.name} has no ${unknown.join(', ')} category — its masks are ${p.categories.join(', ')}`)
+    }
+  }
+
+  /*
+   * `SAVE_FROM_PRW`, not `SAVE_FROM_PVW`. The enum is MASTER_MEM_SAVE_MODE on
+   * both platforms — SAVE_FROM_PGM, SAVE_FROM_PRW, USE_EXISTING_MEMORIES and
+   * two _SHADOW variants — and a write of the wrong spelling is refused in
+   * silence: read back on the LivePremier simulator on 2026-09-12, `PVW`
+   * left the previous mode in place and `PRW` landed. Every `Store Master …
+   * Preview` before this stored from program.
+   */
+  const saveMode = mode === 'PROGRAM' ? 'SAVE_FROM_PGM' : 'SAVE_FROM_PRW'
   ops.push({
-    path: masterSaveProp('mode'),
+    path: p.paths.masterSaveProp('mode'),
     value: saveMode,
     describe: `Store from ${describeMode(mode)}`,
   })
@@ -398,59 +447,24 @@ function compileMasterStore(slot: number, mode: PresetMode, filter?: Filter): Co
   // An absent filter is written wide open rather than left alone. The device
   // keeps the last mask that was set — by us or by someone in the vendor UI —
   // so an unfiltered Store must say so explicitly or it silently inherits.
-  const screens = filter?.screens
-    ? filter.screens.values.map(screenKey)
-    : allKeys(DIMS.screen.min, DIMS.screen.max, screenKey)
-  const auxes = filter?.auxes
-    ? filter.auxes.values.map(auxKey)
-    : allKeys(DIMS.aux.min, DIMS.aux.max, auxKey)
-  const layerValues = filter?.layers
-    ? layerFilterValues(filter.layers)
-    : ['NATIVE', ...allKeys(DIMS.layer.min, DIMS.layer.max, String)]
-  const categories = filter?.categories ?? CATEGORIES
+  // The properties, and their wide-open values, are the platform's.
+  for (const w of p.masterFilterWrites(filter && {
+    screens: filter.screens?.values,
+    auxes: filter.auxes?.values,
+    layers: filter.layers ? { native: filter.layers.native, numbers: filter.layers.numbers.values } : undefined,
+    categories: filter.categories,
+  })) {
+    ops.push({ path: p.paths.masterSaveProp(w.prop), value: w.value, describe: w.describe })
+  }
 
   ops.push({
-    path: masterSaveProp('screenFilter'),
-    value: screens,
-    describe: filter?.screens ? `Only ${screens.join(', ')}` : 'All screens',
-  })
-  ops.push({
-    path: masterSaveProp('auxFilter'),
-    value: auxes,
-    describe: filter?.auxes ? `Only ${auxes.join(', ')}` : 'All auxes',
-  })
-  ops.push({
-    path: masterSaveProp('layerFilter'),
-    value: layerValues,
-    describe: filter?.layers ? `Only layer ${layerValues.join(', ')}` : 'All layers',
-  })
-  ops.push({
-    path: masterSaveProp('categoryFilter'),
-    value: [...categories],
-    describe: filter?.categories ? `Only ${categories.join(', ')}` : 'All categories',
-  })
-
-  ops.push({
-    path: masterMemorySave(slot),
+    path: p.paths.masterMemorySave(slot),
     value: true,
     describe: `Store Master memory ${slot}`,
   })
 
   const masked = filter ? ' (masked)' : ''
   return { ok: true, ops, summary: `Store Master ${slot} ← ${describeMode(mode)}${masked}` }
-}
-
-function layerFilterValues(layers: { native: boolean; numbers: { values: readonly number[] } }): string[] {
-  const out: string[] = []
-  if (layers.native) out.push('NATIVE')
-  for (const n of layers.numbers.values) out.push(String(n))
-  return out
-}
-
-function allKeys(min: number, max: number, key: (n: number) => string): string[] {
-  const out: string[] = []
-  for (let n = min; n <= max; n++) out.push(key(n))
-  return out
 }
 
 /** The screens and auxes a command acts on: its own, or the sticky scope. */
@@ -484,8 +498,14 @@ function bankOf(scope: Scope, layers?: readonly unknown[]): BankKind {
   return 'screen'
 }
 
-function checkSlot(bank: BankKind, slot: number): string | undefined {
-  const { min, max } = SLOTS[bank]
+/** The bank a per-destination recall or store addresses: aux only when every target is one. */
+const bankOfTargets = (targets: readonly Target[]): BankKind =>
+  targets.length > 0 && targets.every((t) => t.kind === 'aux') ? 'aux' : 'screen'
+
+function checkSlot(p: Platform, bank: BankKind, slot: number): string | undefined {
+  const range = p.slots[bank]
+  if (!range) return `${p.name} has no ${bank} memory bank`
+  const { min, max } = range
   if (slot < min || slot > max) {
     return `Memory ${slot} is out of range — ${bank} memories are ${min} to ${max}`
   }
@@ -500,13 +520,15 @@ function checkSlot(bank: BankKind, slot: number): string | undefined {
  * third of the canvas, which is what someone asking for it means.
  */
 function assignmentOps(
+  p: Platform,
   ops: Op[],
   set: Assignment,
   t: Target,
-  buffer: PresetBuffer,
+  buffer: string,
   layer: number | 'NATIVE',
   canvas: { readonly w: number; readonly h: number } | undefined,
 ): string | undefined {
+  const { paths, layer: LAYER } = p
   const px = (a: Amount, axis: 'w' | 'h', what: string): number | string => {
     if (!a.percent) return Math.round(a.value)
     if (!canvas) {
@@ -516,10 +538,10 @@ function assignmentOps(
   }
 
   if (set.source) {
-    const value = sourceValue(set.source)
-    if (typeof value === 'string' && value.startsWith('!')) return value.slice(1)
+    const value = p.sourceValue(set.source.family, set.source.n)
+    if (value.startsWith('!')) return value.slice(1)
     ops.push({
-      path: layerSource(t, buffer, layer),
+      path: paths.layerSource(t, buffer, layer),
       value,
       describe: `Source ${value} on ${describeTarget(t)} layer ${layer}`,
     })
@@ -537,8 +559,8 @@ function assignmentOps(
       }
     }
     ops.push(
-      { path: layerPosition(t, buffer, layer, 'sizeH'), value: h, describe: `Width ${h}px` },
-      { path: layerPosition(t, buffer, layer, 'sizeV'), value: v, describe: `Height ${v}px` },
+      { path: paths.layerGeometry(t, buffer, layer, 'sizeH'), value: h, describe: `Width ${h}px` },
+      { path: paths.layerGeometry(t, buffer, layer, 'sizeV'), value: v, describe: `Height ${v}px` },
     )
   }
 
@@ -554,8 +576,8 @@ function assignmentOps(
       }
     }
     ops.push(
-      { path: layerPosition(t, buffer, layer, 'posH'), value: h, describe: `X ${h}px (layer centre)` },
-      { path: layerPosition(t, buffer, layer, 'posV'), value: v, describe: `Y ${v}px (layer centre)` },
+      { path: paths.layerGeometry(t, buffer, layer, 'posH'), value: h, describe: `X ${h}px (layer centre)` },
+      { path: paths.layerGeometry(t, buffer, layer, 'posV'), value: v, describe: `Y ${v}px (layer centre)` },
     )
   }
 
@@ -569,31 +591,13 @@ function assignmentOps(
       return `Opacity ${raw} is out of range — the device's scale is 0 to ${LAYER.opacityMax}`
     }
     ops.push({
-      path: layerOpacity(t, buffer, layer),
+      path: paths.layerOpacity(t, buffer, layer),
       value: raw,
       describe: `Opacity ${raw} of ${LAYER.opacityMax}`,
     })
   }
 
   return undefined
-}
-
-/** An error is returned as a string prefixed with `!`, to keep one return type. */
-function sourceValue(src: NonNullable<Assignment['source']>): string {
-  switch (src.family) {
-    case 'none':
-      return 'NONE'
-    case 'colour':
-      return 'COLOR'
-    case 'still':
-      return src.n !== undefined && src.n >= 1 && src.n <= SOURCES.still
-        ? `STILL_${src.n}`
-        : `!Still ${src.n} is out of range — stills are 1 to ${SOURCES.still}`
-    case 'live':
-      return src.n !== undefined && src.n >= 1 && src.n <= SOURCES.live
-        ? `LIVE_${src.n}`
-        : `!Source ${src.n} is out of range — live inputs are 1 to ${SOURCES.live}`
-  }
 }
 
 function describeAssignment(set: Assignment): string {

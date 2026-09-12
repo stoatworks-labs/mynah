@@ -85,7 +85,9 @@ function dispatch(language: LanguageId, body: string, ctx: RunContext): RunResul
     case 'json':
       return json.run(body)
     case 'osc':
-      return osc.run(body, ctx.osc)
+      /* The platform is a fact about the line's destination, not about the
+         language, so it is threaded in here rather than asked for twice. */
+      return osc.run(body, { ...ctx.osc, platform: ctx.osc?.platform ?? ctx.platform })
     case 'mynah':
       return mynah(body, ctx)
   }
@@ -99,7 +101,7 @@ function dispatch(language: LanguageId, body: string, ctx: RunContext): RunResul
  * never produces reads: every one of them is a write.
  */
 function mynah(body: string, ctx: RunContext): RunResult {
-  const parsed = parse(body)
+  const parsed = parse(body, { platform: ctx.platform })
   if (!parsed.ok) {
     return {
       ok: false,
@@ -138,6 +140,9 @@ export {
   BUILTIN_GROUP_PARAMS,
   BUILTIN_LAYER_PARAMS,
   BUILTIN_PARAMS,
+  BUILTIN_MIDRA_GROUP_PARAMS,
+  BUILTIN_MIDRA_LAYER_PARAMS,
+  BUILTIN_MIDRA_PARAMS,
   coerce,
   denormalise,
   paramAddress,

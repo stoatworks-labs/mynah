@@ -55,7 +55,7 @@ device until overwritten — so an unfiltered store must write them wide open
 rather than leaving whatever was there.
 
 ```
-masterPresetBank/control/save/@props/mode            SAVE_FROM_PGM | SAVE_FROM_PVW
+masterPresetBank/control/save/@props/mode            SAVE_FROM_PGM | SAVE_FROM_PRW  (not PVW — refused silently)
 masterPresetBank/control/save/@props/screenFilter    ["S1"…"S24"]
 masterPresetBank/control/save/@props/auxFilter       ["A1"…"A96"]
 masterPresetBank/control/save/@props/layerFilter     ["NATIVE","1"…"128"]
@@ -157,3 +157,51 @@ accepts any origin.
 
 That is why Mynah's memory index is opt-in and usually unavailable, and why the
 empty-memory case is detected from the socket instead.
+
+## Midra 4K / Alta 4K — the other platform (firmware 3.3.10 / 1.3.7)
+
+Everything above is LivePremier (`nlc-platform`). Midra 4K (QuickVu, Pulse,
+Eikos, QuickMatrix) and Alta 4K (Zenith 100/200) run `mng-platform`, the same
+Web RCS architecture over a different object model. `src/lang/platforms.ts`
+spells both; pass `platform: MIDRA` to `run()`/`compile()`/`parse()` and every
+path below comes out instead. Read off a live Pulse 4K (3.3.10, read-only) and
+written on the Midra 4K simulator as a Pulse 4K and the Alta 4K simulator as a
+Zenith 200 on 2026-09-12 — each row was written over AWJ and read back.
+
+```text
+take                      transition/$screen/@items/1/control/@props/xTake         (aux: transition/$auxiliaryScreen/@items/1/…)
+fade                      transition/$screen/@items/1/control/@props/takeTime      one time, tenths; no up/down pair
+take status               transition/$screen/@items/1/status/@props/transition     AT_UP … COPY_FROM_DOWN, the same six
+screen memory recall      preset/bank/control/load/$slot/@items/5/$screen/@items/1/$preset/@items/PREVIEW/@props/xRequest
+screen memory store       preset/bank/control/save/$screen/@items/1/$preset/@items/PROGRAM/$slot/@items/5/@props/xRequest
+aux memory recall         preset/auxBank/control/load/$slot/@items/7/$auxiliaryScreen/@items/1/$preset/@items/PREVIEW/@props/xRequest
+master recall             preset/masterBank/control/load/$slot/@items/1/$preset/@items/PREVIEW/@props/xRequest
+master store              preset/masterBank/control/save/$slot/@items/1/@props/xRequest
+master record mask        preset/masterBank/control/save/@props/{mode, screenFilter, auxFilter, screenLayerLiveFilter,
+                                                                screenLayerBackFilter, screenLayerTopFilter,
+                                                                screenCategoryFilter, auxCategoryFilter}
+label / erase             preset/bank/$slot/@items/5/control/@props/{label, xDelete}   ($slot, not $bank)
+multiviewer layout        multiviewer/$bank/control/{load,save}/$slot/@items/3/@props/xRequest   one multiviewer, no output
+multiviewer label         multiviewer/$bank/@items/3/control/@props/label
+live layer source         $screen/@items/1/$preset/@items/UP/$liveLayer/@items/1/source/@props/input     INPUT_1..16, NONE, COLOR
+live layer geometry       …/$liveLayer/@items/1/position/@props/{posH,posV}   …/size/@props/{sizeH,sizeV}
+live layer opacity        …/$liveLayer/@items/1/opacity/@props/opacity        0..256
+aux source                $auxiliaryScreen/@items/1/$preset/@items/UP/background/source/@props/content  an aux has no layers
+which memory a buffer holds   $screen/@items/1/$preset/@items/UP/status/@props/{memoryId, isModified}
+```
+
+Ranges: screens 1–4, auxes 1–4, layers 1–8 (no NATIVE), one multiviewer;
+banks 200 screen, 200 aux, 50 master, 20 multiviewer, **no layer bank**.
+Buffers are `UP`/`DOWN`, and which is program is the transition suffix: `…UP`
+means program is `UP`. The record-mask categories are SOURCE, POS, SIZE,
+OPACITY, CROPPING, MASK, BORDER, TRANSITIONS, EFFECTS, FLYING_CURVE, TIMING,
+SPEED, AUDIO — no CUT_AND_FILL or KEYER. There is no audio matrix of the
+LivePremier shape, and a layer cannot show a still.
+
+⚠️ **`SAVE_FROM_PRW`, on both platforms.** The master save mode enum is
+SAVE_FROM_PGM, SAVE_FROM_PRW, USE_EXISTING_MEMORIES and two `_SHADOW` forms.
+This document said `SAVE_FROM_PVW` until 2026-09-12, and the compiler wrote
+it: the device refuses the value silently and keeps the previous mode, so
+every `Store Master … Preview` stored from program. Proven by writing both to
+the LivePremier simulator and reading back.
+

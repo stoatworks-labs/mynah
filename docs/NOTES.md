@@ -25,6 +25,33 @@ Allan when the release was proposed):
   **Keep RE provenance out of the two public repos** — bundle/`VAR_DIMS`/
   "recovered" wording was scrubbed from them before publishing.
 
+## Midra 4K / Alta 4K target, and a real bug (2026-09-12)
+
+Asked, from a live event with a Pulse 4K on the desk, to make LivePremier Plus's
+Console work there. That console is this grammar, vendored, so the port is here.
+
+- **`src/lang/platforms.ts`** — `LIVEPREMIER` (model.ts wrapped, byte-identical
+  output, pinned by a corpus test) and `MIDRA`. `compile`, `parse` and the OSC
+  resolver take `platform` from their context; `run()` threads it through.
+  Parser owns the ranges (Screen 5 is refused on a Pulse), compiler owns the
+  policy (no layer bank, no NATIVE, no stills, no audio matrix, category masks
+  the platform lacks), the platform owns the spelling. `docs/PATHS.md` has the
+  table; every row was written on the Midra sim (Pulse 4K) or the Alta sim
+  (Zenith 200) over AWJ and read back. The live Pulse 4K was read only.
+- `Set Aux 1 Source 4` is legal on Midra without a layer — an aux preset is
+  one background source — and refused for anything but the source.
+- ⚠️ **`SAVE_FROM_PVW` never existed.** The enum is `SAVE_FROM_PRW` on both
+  platforms; the LivePremier sim kept the previous mode when written `PVW` and
+  took `PRW`. Fixed in compile.ts, model.ts and PATHS.md. Every `Store Master …
+  Preview` this app ever sent stored from program instead.
+- `oscDictionary(params?, platform?)` publishes per platform; `BUILTIN_MIDRA_*`
+  are the vouched-for Midra tables until a catalogue is generated from an mng
+  bundle (awj-surface's generator does not read the minified one yet).
+- Not done: the web app and the Stream Deck plugin still assume LivePremier —
+  their links read `presetUp`/`presetDown` and the 124 MB snapshot. Only the
+  language core knows about Midra. `npm run build:lang` and re-vendor into
+  livepremier-plus is the consumer path.
+
 ## Shipped 2026-08-21
 
 - **PUBLIC v1.0.0**, GitHub release with notes. CI green; Dependabot on.

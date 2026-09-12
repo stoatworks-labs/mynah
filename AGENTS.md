@@ -20,7 +20,10 @@ src/lang/          the language. No DOM, no network, no React.
   parser.ts        tokens -> Command. Resolves ranges, applies NO defaults
   compile.ts       Command -> ordered device writes. ALL policy lives here:
                    defaults, sticky scope, and the order a master store needs
-  model.ts         the device's dimensions, enums and path builders
+  model.ts         the LivePremier dimensions, enums and path builders
+  platforms.ts     the SECOND platform — Midra 4K / Alta 4K — and the one
+                   interface over both. `platform: MIDRA` in a run/compile/
+                   parse context reroutes every path; LivePremier is the default
   paths.ts         one path, rendered for either transport — and read back
                    from either, which is what the raw languages need
   dialects/        the other three languages. AWJ, raw store JSON and OSC,
@@ -54,7 +57,16 @@ able to reach air. This is not configurable and should not become configurable.
 **Verify a path before you use it.** Everything in `docs/PATHS.md` was read off
 a running device. Analog Way moves paths between firmwares, and the published
 AWJ guide is already wrong about several on 6.2. Do not add a path from the PDF
-alone.
+alone. **Enum values too:** `SAVE_FROM_PVW` was in this repo for three weeks and
+is not a member of the enum on either platform — the device refuses it without
+a word and keeps the old mode. Write the value, read it back.
+
+**There are two platforms and the grammar compiles for both.** `platforms.ts`
+holds LivePremier (`model.ts`, wrapped) and Midra 4K / Alta 4K side by side.
+Anything that spells a device path takes the platform from its context and
+never imports a builder from `model.ts` directly — that is how the second one
+got in without touching the first. A host that knows what it is talking to
+passes `platform`; one that does not gets LivePremier, exactly as before.
 
 **Do not trust an accepted write.** The device answers a recall of an empty
 memory with complete silence — no error. Positive confirmation is `isLoading`
