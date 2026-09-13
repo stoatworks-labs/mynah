@@ -222,9 +222,121 @@ describe('Midra 4K: live layer parameters', () => {
   })
 })
 
-describe('Midra 4K: audio', () => {
-  it('has no LivePremier audio matrix', () => {
-    expect(refusal('Set Audio Mute Output 3')).toMatch(/matrix/)
+describe('Midra 4K: audio is routed, not patched through a matrix', () => {
+  /* Every path below was written on the Midra 4K simulator (as a Pulse 4K) on
+     2026-09-13 and read back; the enums came off a live Pulse 4K's bundle. */
+  it('patches a screen’s audio layer in the preview preset, and takes Program', () => {
+    expect(awj('Set Audio Patch Input 3 To Screen 1', MIDRA, midraFacts)).toEqual([
+      'DeviceObject/$screen/@items/1/$preset/@items/UP/audio/control/@props/source = "IN3"',
+    ])
+    expect(awj('Set Audio Patch Input 3 To Screen 1 Program', MIDRA, midraFacts)).toEqual([
+      'DeviceObject/$screen/@items/1/$preset/@items/DOWN/audio/control/@props/source = "IN3"',
+    ])
+    /* Screen 2 is AT_UP, so its preview is DOWN; a range patches each. */
+    expect(awj('Set Audio Patch Custom 4 To Screen 1 Thru 2', MIDRA, midraFacts)).toEqual([
+      'DeviceObject/$screen/@items/1/$preset/@items/UP/audio/control/@props/source = "CUSTOM_4"',
+      'DeviceObject/$screen/@items/2/$preset/@items/DOWN/audio/control/@props/source = "CUSTOM_4"',
+    ])
+    expect(awj('Set Audio Patch None To Aux 1', MIDRA, midraFacts)).toEqual([
+      'DeviceObject/$auxiliaryScreen/@items/1/$preset/@items/UP/audio/control/@props/source = "NONE"',
+    ])
+    expect(refusal('Set Audio Patch Input 3 To Screen 1')).toMatch(/live connection/)
+  })
+  it('spells every source the device accepts, and Dante by the eight it routes in', () => {
+    const src = (line: string) => awj(`Set Audio Patch ${line} To Screen 1`, MIDRA, midraFacts)[0].split(' = ')[1]
+    expect(src('Input 16')).toBe('"IN16"')
+    expect(src('Dante 1 Thru 8')).toBe('"IN_DANTE_CH1_8"')
+    expect(src('Dante 25 Thru 32')).toBe('"IN_DANTE_CH25_32"')
+    expect(src('Dante Group 2')).toBe('"IN_DANTE_CH9_16"')
+    expect(src('Line Input 2')).toBe('"IN_ANALOG_2"')
+    expect(src('Player')).toBe('"IN_MEDIA_PLAYER"')
+    expect(src('Custom 10')).toBe('"CUSTOM_10"')
+    expect(refusal('Set Audio Patch Dante 3 Thru 10 To Screen 1', MIDRA, midraFacts)).toMatch(/groups of eight/)
+    expect(refusal('Set Audio Patch Input 17 To Screen 1', MIDRA, midraFacts)).toMatch(/1 to 16/)
+    expect(refusal('Set Audio Patch Input 1 Channel 2 To Screen 1', MIDRA, midraFacts)).toMatch(/all eight channels/)
+    expect(refusal('Set Audio Patch Output 1 To Screen 1', MIDRA, midraFacts)).toMatch(/destination, not a source/)
+    expect(refusal('Set Audio Patch Input 1 To Line Input 1', MIDRA, midraFacts)).toMatch(/source, not a destination/)
+  })
+  it('patches a routing point in two writes: direct routing, then the source', () => {
+    expect(awj('Set Audio Patch Input 4 To Output 1')).toEqual([
+      'DeviceObject/$output/@items/1/audio/control/@props/mode = "DIRECT_ROUTING"',
+      'DeviceObject/$output/@items/1/audio/control/directRouting/@props/source = "IN4"',
+    ])
+    expect(awj('Set Audio Patch Custom 1 To Line Output 2')).toEqual([
+      'DeviceObject/audio/$lineOut/@items/2/control/@props/mode = "DIRECT_ROUTING"',
+      'DeviceObject/audio/$lineOut/@items/2/control/directRouting/@props/source = "CUSTOM_1"',
+    ])
+    expect(awj('Set Audio Patch Input 5 To Dante 1 Thru 8')).toEqual([
+      'DeviceObject/audio/dante/$outputGroup/@items/1/control/@props/mode = "DIRECT_ROUTING"',
+      'DeviceObject/audio/dante/$outputGroup/@items/1/control/directRouting/@props/source = "IN5"',
+    ])
+    expect(awj('Set Audio Patch Line Input 1 To Multiviewer')).toEqual([
+      'DeviceObject/multiviewer/audio/control/@props/mode = "DIRECT_ROUTING"',
+      'DeviceObject/multiviewer/audio/control/directRouting/@props/source = "IN_ANALOG_1"',
+    ])
+    expect(refusal('Set Audio Patch Input 4 To Output 1 Program')).toMatch(/not per preset/)
+    expect(refusal('Set Audio Patch Input 4 To Output 7')).toMatch(/1 to 6/)
+  })
+  it('follows: the mode, and the number where the thing followed has one', () => {
+    expect(awj('Set Audio Follow Layer 2 On Screen 1')).toEqual([
+      'DeviceObject/$screen/@items/1/audio/control/@props/mode = "FOLLOW_LIVE_LAYER_CONTENT"',
+      'DeviceObject/$screen/@items/1/audio/control/followLiveLayer/@props/layer = "2"',
+    ])
+    expect(awj('Set Audio Follow Audio Layer On Screen 1')).toEqual([
+      'DeviceObject/$screen/@items/1/audio/control/@props/mode = "FOLLOW_AUDIO_LAYER"',
+    ])
+    expect(awj('Set Audio Follow Video On Aux 2')).toEqual([
+      'DeviceObject/$auxiliaryScreen/@items/2/audio/control/@props/mode = "FOLLOW_CONTENT"',
+    ])
+    expect(awj('Set Audio Follow Screen On Output 3')).toEqual([
+      'DeviceObject/$output/@items/3/audio/control/@props/mode = "AUTO"',
+    ])
+    expect(awj('Set Audio Follow Screen 2 On Line Output 1')).toEqual([
+      'DeviceObject/audio/$lineOut/@items/1/control/@props/mode = "FOLLOW_SCREEN"',
+      'DeviceObject/audio/$lineOut/@items/1/control/followScreen/@props/screen = "2"',
+    ])
+    expect(awj('Set Audio Follow Screen 3 On Dante Group 4')).toEqual([
+      'DeviceObject/audio/dante/$outputGroup/@items/4/control/@props/mode = "FOLLOW_SCREEN"',
+      'DeviceObject/audio/dante/$outputGroup/@items/4/control/followScreen/@props/screen = "3"',
+    ])
+    expect(awj('Set Audio Follow Widget 3 On Multiviewer')).toEqual([
+      'DeviceObject/multiviewer/audio/control/@props/mode = "FOLLOW_WIDGET"',
+      'DeviceObject/multiviewer/audio/control/followWidget/@props/widget = "3"',
+    ])
+    expect(refusal('Set Audio Follow Screen 2 On Output 1')).toMatch(/cannot pick another/)
+    expect(refusal('Set Audio Follow Screen On Line Output 1')).toMatch(/numbered screen/)
+    expect(refusal('Set Audio Follow Video On Screen 1')).toMatch(/Layer n or its Audio Layer/)
+    expect(refusal('Set Audio Follow Layer 9 On Screen 1')).toMatch(/1 to 8/)
+    expect(refusal('Set Audio Follow Layer 2 On Input 1')).toMatch(/source, not a point/)
+  })
+  it('mutes screens, auxes, audio outputs whole or per channel, and an input on every plug it has', () => {
+    expect(awj('Set Audio Mute Screen 1')).toEqual(['DeviceObject/audio/$screen/@items/1/control/@props/mute = true'])
+    expect(awj('Set Audio Unmute Aux 2')).toEqual(['DeviceObject/audio/$auxiliaryScreen/@items/2/control/@props/mute = false'])
+    expect(awj('Set Audio Mute Output 1')).toEqual(['DeviceObject/audio/$output/@items/VIDEO_OUT_1/control/@props/mute = true'])
+    expect(awj('Set Audio Mute Output 1 Channel 3 Thru 4')).toEqual([
+      'DeviceObject/audio/$output/@items/VIDEO_OUT_1/$channel/@items/3/control/@props/mute = true',
+      'DeviceObject/audio/$output/@items/VIDEO_OUT_1/$channel/@items/4/control/@props/mute = true',
+    ])
+    expect(awj('Set Audio Mute Multiviewer')).toEqual(['DeviceObject/audio/$output/@items/VIDEO_MULTIVIEWER/control/@props/mute = true'])
+    expect(awj('Set Audio Mute Dante 9 Thru 16')).toEqual(['DeviceObject/audio/$output/@items/DANTE_CH9_16/control/@props/mute = true'])
+    expect(awj('Set Audio Mute Line Output 2')).toEqual(['DeviceObject/audio/$output/@items/ANALOG_2/control/@props/mute = true'])
+    /* Input 6 has an HDMI and an RJ45 plug; the mute lands on both. */
+    expect(awj('Set Audio Mute Input 6 Channel 1')).toEqual([
+      'DeviceObject/audio/$input/@items/IN6_HDMI_EMBEDDED/$channel/@items/1/control/@props/mute = true',
+      'DeviceObject/audio/$input/@items/IN6_RJ45_EMBEDDED/$channel/@items/1/control/@props/mute = true',
+    ])
+    expect(awj('Set Audio Mute Input 3').length).toBe(8)
+    expect(refusal('Set Audio Mute None')).toMatch(/not something that can be muted/)
+    expect(refusal('Set Audio Mute Player')).toMatch(/no mute of its own/)
+    expect(refusal('Set Audio Mute Screen 1 Preview')).toMatch(/not per preset/)
+  })
+  it('LivePremier keeps its matrix grammar, and the words that are routing-only are refused there', () => {
+    expect(awj('Set Audio Patch Input 1 Channel 1 To Output 3 Channel 1', LIVEPREMIER)).toEqual([
+      'DeviceObject/audio/control/$device/@items/1/$tx/@items/OUTPUT_3/$channel/@items/1/control/@props/source = "INPUT_1_CHANNEL_1"',
+    ])
+    expect(refusal('Set Audio Follow Layer 2 On Screen 1', LIVEPREMIER)).toMatch(/Patch, Mute or Unmute/)
+    expect(refusal('Set Audio Patch Input 1 To Screen 1', LIVEPREMIER)).toMatch(/Input, Output, Multiviewer, Dante or None/)
+    expect(refusal('Set Audio Mute Output 3 Preview', LIVEPREMIER)).toMatch(/no presets/)
   })
 })
 

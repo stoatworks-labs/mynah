@@ -20,7 +20,7 @@ import {
   type Target,
 } from './model.ts'
 import type { Path } from './paths.ts'
-import { LIVEPREMIER, type Platform } from './platforms.ts'
+import { LIVEPREMIER, MIDRA_AUDIO, type Platform } from './platforms.ts'
 
 export interface Op {
   readonly path: Path
@@ -105,9 +105,9 @@ export function compile(cmd: Command, ctx: CompileContext = {}): CompileResult {
   const paths = p.paths
 
   if (cmd.audio) {
-    if (!p.audio) {
-      return fail(`Audio patching is written against LivePremier's matrix, which ${p.name} does not have`)
-    }
+    if (p.audio === 'routing') return compileRoutingAudio(cmd, ctx, fail)
+    if (!p.audio) return fail(`${p.name} has no audio this grammar can address`)
+    if (cmd.mode) return fail('The audio matrix has no presets — Preview and Program mean nothing here')
     return compileAudio(cmd.audio, ctx, fail)
   }
 
@@ -785,6 +785,175 @@ function compileAudio(
         ? ops[0].describe
         : `Patch ${sources.length === 1 ? sources[0].describe : sources.length + ' sources'} → ${spread.length} destinations`,
   }
+}
+
+// ---------------------------------------------------------------------------
+// Audio routing on Midra 4K / Alta 4K
+// ---------------------------------------------------------------------------
+
+const POINT_NAMES: Record<string, string> = {
+  screen: 'Screen', aux: 'Aux', output: 'Output', lineOut: 'Line Output', dante: 'Dante group', multiviewer: 'Multiviewer',
+}
+const SOURCE_NAMES: Record<string, string> = {
+  none: 'None', input: 'Input', dante: 'Dante group', lineIn: 'Line Input', media: 'Player', custom: 'Custom',
+}
+const describeRouting = (ep: AudioEndpoint, n?: number): string => {
+  const name = POINT_NAMES[ep.kind] ?? SOURCE_NAMES[ep.kind] ?? ep.kind
+  return n === undefined ? name : `${name} ${n}`
+}
+
+/**
+ * Audio on a routing platform — see `MIDRA_AUDIO` for the model this follows.
+ *
+ * A **patch to a screen or aux** writes the preset's audio layer, preview
+ * unless told otherwise, exactly as a layer Set does: it takes with the
+ * preset, and it is heard if the destination's mode is "follow audio layer".
+ * A **patch to anything else** — a video output, a line out, a Dante output
+ * group, the multiviewer — is two writes, the mode to direct routing and the
+ * source, because a source set on a point still following something would be
+ * a write that changed nothing. **Follow** writes the mode and, where the
+ * thing followed has a number, that too.
+ */
+function compileRoutingAudio(
+  cmd: Command,
+  ctx: CompileContext,
+  fail: (message: string) => CompileResult,
+): CompileResult {
+  const audio = cmd.audio!
+  const A = MIDRA_AUDIO
+  const to = audio.to
+  if (!to) return fail('That audio command names nothing to act on')
+  const units = (ep: AudioEndpoint): readonly number[] => ep.unit?.values ?? [1]
+
+  // ---------------------------------------------------------------- mute
+  if (audio.action === 'MUTE' || audio.action === 'UNMUTE') {
+    if (cmd.mode) return fail('A mute is not per preset — drop the Preview/Program')
+    const value = audio.action === 'MUTE'
+    const verb = value ? 'Mute' : 'Unmute'
+    const ops: Op[] = []
+    switch (to.kind) {
+      case 'none':
+        return fail('None is not something that can be muted')
+      case 'lineIn': case 'media': case 'custom':
+        return fail(`${describeRouting(to)} has no mute of its own here — mute the input's channels, or the point it feeds`)
+      case 'screen': case 'aux':
+        for (const n of units(to)) {
+          const t = { kind: to.kind, n } as const
+          ops.push({ path: A.paths.destinationMute(t), value, describe: `${verb} ${describeRouting(to, n)} audio` })
+        }
+        break
+      case 'input':
+        /* Per channel, on every plug the input has: which plug is live is the
+           device's business, and the mute must hold whichever it is. */
+        for (const n of units(to)) {
+          const channels = to.channels?.values ?? range(A.dims.channel.min, A.dims.channel.max)
+          for (const plug of A.inputPlugs(n)) {
+            for (const ch of channels) {
+              ops.push({ path: A.paths.inputChannelMute(plug, ch), value, describe: `${verb} ${plug} channel ${ch}` })
+            }
+          }
+        }
+        break
+      default: {
+        /* An audio output: whole, or the channels named. */
+        for (const n of units(to)) {
+          const key = A.outputKey(to.kind, n)
+          if (key.startsWith('!')) return fail(key.slice(1))
+          if (to.channels) {
+            for (const ch of to.channels.values) {
+              ops.push({ path: A.paths.outputMute(key, ch), value, describe: `${verb} ${describeRouting(to, to.kind === 'multiviewer' ? undefined : n)} channel ${ch}` })
+            }
+          } else {
+            ops.push({ path: A.paths.outputMute(key), value, describe: `${verb} ${describeRouting(to, to.kind === 'multiviewer' ? undefined : n)}` })
+          }
+        }
+      }
+    }
+    return { ok: true, ops, summary: ops.length === 1 ? ops[0].describe : `${verb} ${ops.length} audio points` }
+  }
+
+  // ---------------------------------------------------------------- follow
+  if (audio.action === 'FOLLOW') {
+    if (cmd.mode) return fail('What a point follows is not per preset — drop the Preview/Program')
+    const f = audio.follow!
+    if (to.channels) return fail('A point follows something as a whole — drop the Channel')
+    const ops: Op[] = []
+    const label = (n?: number) => describeRouting(to, to.kind === 'multiviewer' ? undefined : n)
+    for (const n of units(to)) {
+      switch (to.kind) {
+        case 'screen':
+          if (f.what === 'layer') {
+            ops.push({ path: A.paths.mode('screen', n), value: 'FOLLOW_LIVE_LAYER_CONTENT', describe: `${label(n)} audio follows live layer content` })
+            ops.push({ path: A.paths.follow('screen', n, 'followLiveLayer'), value: String(f.n), describe: `${label(n)} follows layer ${f.n}` })
+          } else if (f.what === 'audioLayer') {
+            ops.push({ path: A.paths.mode('screen', n), value: 'FOLLOW_AUDIO_LAYER', describe: `${label(n)} audio follows its audio layer` })
+          } else return fail(`A screen's audio follows a Layer n or its Audio Layer — not ${f.what === 'screen' ? 'a screen' : f.what}`)
+          break
+        case 'aux':
+          if (f.what === 'content') {
+            ops.push({ path: A.paths.mode('aux', n), value: 'FOLLOW_CONTENT', describe: `${label(n)} audio follows its video content` })
+          } else if (f.what === 'audioLayer') {
+            ops.push({ path: A.paths.mode('aux', n), value: 'FOLLOW_AUDIO_LAYER', describe: `${label(n)} audio follows its audio layer` })
+          } else return fail(`An aux's audio follows its Video or its Audio Layer — not ${f.what}`)
+          break
+        case 'output':
+          if (f.what !== 'screen') return fail('A video output follows the screen it shows — say "Follow Screen On Output n"')
+          if (f.n !== undefined) return fail('A video output follows the screen it shows and cannot pick another — say "Follow Screen" without a number, or patch a source')
+          ops.push({ path: A.paths.mode('output', n), value: 'AUTO', describe: `${label(n)} audio follows the screen it shows` })
+          break
+        case 'lineOut': case 'dante':
+          if (f.what !== 'screen' || f.n === undefined) return fail(`${describeRouting(to)} follows a numbered screen — "Follow Screen 2 On ${describeRouting(to, n)}"`)
+          ops.push({ path: A.paths.mode(to.kind, n), value: 'FOLLOW_SCREEN', describe: `${label(n)} audio follows a screen` })
+          ops.push({ path: A.paths.follow(to.kind, n, 'followScreen'), value: String(f.n), describe: `${label(n)} follows screen ${f.n}` })
+          break
+        case 'multiviewer':
+          if (f.what !== 'widget') return fail('The multiviewer\'s audio follows a Widget n — "Follow Widget 3 On Multiviewer"')
+          ops.push({ path: A.paths.mode('multiviewer'), value: 'FOLLOW_WIDGET', describe: 'Multiviewer audio follows a widget' })
+          ops.push({ path: A.paths.follow('multiviewer', undefined, 'followWidget'), value: String(f.n), describe: `Multiviewer follows widget ${f.n}` })
+          break
+        default:
+          return fail(`${describeRouting(to)} is a source, not a point that can follow anything`)
+      }
+    }
+    return { ok: true, ops, summary: ops.length <= 2 ? ops.map((o) => o.describe).join('; ') : `${ops.length} audio writes` }
+  }
+
+  // ---------------------------------------------------------------- patch
+  const from = audio.from
+  if (!from) return fail('Patch needs a source')
+  if (from.channels) return fail('A source is routed as all eight channels here — drop the Channel; a Custom source is where channels are picked')
+  const fromUnits = from.unit?.values ?? [undefined]
+  if (fromUnits.length !== 1) return fail('One source per patch here — a point carries one eight-channel source')
+  const value = A.sourceValue(from.kind, fromUnits[0])
+  if (value.startsWith('!')) {
+    return fail(`${describeRouting(from, fromUnits[0])} is a destination, not a source — patch from an Input, Dante group, Line Input, Player, Custom or None`)
+  }
+  if (to.channels) return fail('A point takes its source whole — drop the Channel')
+  const srcLabel = describeRouting(from, from.kind === 'media' || from.kind === 'none' ? undefined : fromUnits[0])
+
+  const ops: Op[] = []
+  if (to.kind === 'screen' || to.kind === 'aux') {
+    const mode = cmd.mode ?? 'PREVIEW'
+    const facts = ctx.facts
+    if (!facts) return fail('Patching a screen\'s audio layer needs a live connection — it is per preset, which depends on the take state')
+    for (const n of units(to)) {
+      const t = { kind: to.kind, n } as const
+      const buffer = facts.buffer(t, mode)
+      if (!buffer) return fail(`Cannot tell which buffer is ${describeMode(mode)} on ${describeTarget(t)} yet — the device has not reported its take state`)
+      ops.push({ path: A.paths.audioLayer(t, buffer), value, describe: `${describeTarget(t)} audio layer (${describeMode(mode)}) ← ${srcLabel}` })
+    }
+  } else {
+    if (cmd.mode) return fail(`${describeRouting(to)} is not per preset — only a screen's or aux's audio layer takes Preview or Program`)
+    if (to.kind === 'none' || !(to.kind in POINT_NAMES)) {
+      return fail(`${describeRouting(to)} is a source, not a destination — patch to a Screen, Aux, Output, Line Output, Dante group or the Multiviewer`)
+    }
+    for (const n of units(to)) {
+      const label = describeRouting(to, to.kind === 'multiviewer' ? undefined : n)
+      ops.push({ path: A.paths.mode(to.kind, n), value: 'DIRECT_ROUTING', describe: `${label} audio: direct routing` })
+      ops.push({ path: A.paths.direct(to.kind, n), value, describe: `${label} ← ${srcLabel}` })
+    }
+  }
+  return { ok: true, ops, summary: ops.length === 1 ? ops[0].describe : `${srcLabel} → ${units(to).map((n) => describeRouting(to, to.kind === 'multiviewer' ? undefined : n)).join(', ')}` }
 }
 
 /**

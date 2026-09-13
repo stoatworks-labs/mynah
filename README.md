@@ -242,7 +242,11 @@ byte-identical to before) or `MIDRA`, which spells the same grammar for Midra 4K
 `transition/…`, memories under `preset/bank`, `preset/auxBank` and
 `preset/masterBank`, `UP`/`DOWN` buffers resolved from the transition state, one
 multiviewer with twenty layouts, and refusals for what the platform lacks (a layer
-bank, NATIVE, stills on a layer, the audio matrix). Every Midra path was written
+bank, NATIVE, stills on a layer). Audio there is **routed, not patched**: `Set
+Audio Patch Input 3 To Screen 1` writes the preset's audio layer, `Set Audio
+Follow Layer 2 On Screen 1` or `Follow Screen 2 On Line Output 1` sets what a
+point follows, and the mutes land where the device keeps them — `docs/SYNTAX.md
+§11` has both platforms' audio grammars side by side. Every Midra path was written
 on the Midra 4K and Alta 4K simulators and read back — `docs/PATHS.md` has the
 table — and then, on 2026-09-12/13, proven on a **live Pulse 4K** (3.3.10)
 through [LivePremier Plus](https://github.com/stoatworks-labs/livepremier-plus),

@@ -159,8 +159,17 @@ export interface Platform {
   }
   /** How many live inputs and stills a layer source can name. 0 = none. */
   readonly sources: { readonly live: number; readonly still: number }
-  /** Whether the audio-matrix grammar addresses anything here. */
-  readonly audio: boolean
+  /**
+   * How audio is addressed here, or null for none.
+   *
+   * `matrix` is LivePremier: a receiver/transmitter channel matrix, `model.ts`'s
+   * AUDIO, where a patch writes a source key into a destination channel.
+   * `routing` is Midra 4K / Alta 4K: no matrix at all, but a set of points —
+   * each screen preset's audio layer, each video output, line out, Dante
+   * output group and the multiviewer — that each carry ONE eight-channel
+   * source, or follow something. See `MIDRA_AUDIO` for the paths.
+   */
+  readonly audio: 'matrix' | 'routing' | null
   /** The parameter table the OSC resolver falls back to when a host passes none. */
   readonly builtinParams: ParamTable
   readonly paths: PlatformPaths
@@ -200,7 +209,7 @@ export const LIVEPREMIER: Platform = {
   buffers: ['A', 'B', 'C'],
   layer: LP_LAYER,
   sources: { live: LP_SOURCES.live, still: LP_SOURCES.still },
-  audio: true,
+  audio: 'matrix',
   builtinParams: BUILTIN_PARAMS,
   paths: {
     take: takePath,
@@ -363,7 +372,7 @@ export const MIDRA: Platform = {
     sizeMax: 65_535,
   },
   sources: { live: MIDRA_INPUTS, still: 0 },
-  audio: false,
+  audio: 'routing',
   builtinParams: BUILTIN_MIDRA_PARAMS,
   paths: {
     take: (t) => DeviceObject.node('transition').item(midraCollection(t), t.n).node('control').prop('xTake'),
@@ -450,6 +459,126 @@ export const MIDRA: Platform = {
  * there the end names a letter through `presetUp`/`presetDown`, here the
  * buffers are named for the ends.
  */
+/* ================================================== Midra 4K / Alta 4K audio */
+
+/**
+ * Audio on Midra 4K / Alta 4K, as the device models it.
+ *
+ * There is no channel matrix. Audio travels as eight-channel **sources** —
+ * `IN1`…`IN16` (an input's embedded audio, whichever plug is active), four
+ * Dante input groups of eight, two analogue line inputs, the media player and
+ * ten custom mixes — and every place audio comes out is a **routing point**
+ * that either carries one of those sources directly or follows something:
+ *
+ * | point                | direct source                          | can follow                                    |
+ * |----------------------|----------------------------------------|-----------------------------------------------|
+ * | screen preset        | its audio layer (`presetList/…/audio`) | — (this IS what "follow audio layer" follows) |
+ * | screen               | `audio/control/directRouting`          | live layer n's content, or the audio layer    |
+ * | aux                  | same                                   | the video content, or the audio layer         |
+ * | video output 1–6     | `outputList/n/audio/control/…`         | the screen it shows (`AUTO`)                  |
+ * | line out 1–2         | `audio/lineOutList/n/control/…`        | screen n                                      |
+ * | Dante out group 1–4  | `audio/dante/outputGroupList/n/…`      | screen n                                      |
+ * | multiviewer          | `multiviewer/audio/control/…`          | widget n                                      |
+ *
+ * The **audio layer** is the part an operator programs: one source per
+ * screen preset, recalled with the memory and swapped by the take exactly as
+ * the layers are — so `Set Audio Patch Input 3 To Screen 1` writes the
+ * preview preset's audio layer and is heard on the wall after the next TAKE,
+ * provided the screen's mode is "follow audio layer" (the factory default,
+ * and what `Set Audio Follow Audio Layer On Screen 1` restores).
+ *
+ * Every path here was written on the Midra 4K simulator (3.2.29, as a Pulse
+ * 4K) and read back on 2026-09-13; the object model and enums were read off a
+ * live Pulse 4K (3.3.10) and its bundle. Every direct-routing node and both
+ * audio layers accept exactly `AUDIO_SOURCE` — the bundle also lists
+ * `SCREEN_n` and `VIDEO_OUT_n` forms for auxes and outputs, and the device
+ * refused every one of them, so they are not offered. The sub-nodes live
+ * under `control` (`audio/control/directRouting/pp/source`); the AWJ
+ * spelling below is the one that answers.
+ */
+export const MIDRA_AUDIO = {
+  dims: {
+    input: { min: 1, max: 16 },
+    /** Dante in and out come in four groups of eight: `Dante 1 Thru 8` is group 1. */
+    danteGroup: { min: 1, max: 4 },
+    lineIn: { min: 1, max: 2 },
+    lineOut: { min: 1, max: 2 },
+    custom: { min: 1, max: 10 },
+    /** Video outputs that can carry audio. */
+    output: { min: 1, max: 6 },
+    channel: { min: 1, max: 8 },
+    widget: { min: 1, max: 16 },
+  },
+  /** The `AUDIO_SOURCE` spelling of a source endpoint, or an error starting with `!`. */
+  sourceValue(kind: string, n?: number): string {
+    switch (kind) {
+      case 'none': return 'NONE'
+      case 'input': return `IN${n}`
+      case 'dante': return `IN_DANTE_CH${(n! - 1) * 8 + 1}_${n! * 8}`
+      case 'lineIn': return `IN_ANALOG_${n}`
+      case 'media': return 'IN_MEDIA_PLAYER'
+      case 'custom': return `CUSTOM_${n}`
+      default: return `!${kind} is not an audio source here`
+    }
+  },
+  /** The `AUDIO_OUTPUT` key of a destination, for its mute. */
+  outputKey(kind: string, n?: number): string {
+    switch (kind) {
+      case 'output': return `VIDEO_OUT_${n}`
+      case 'multiviewer': return 'VIDEO_MULTIVIEWER'
+      case 'dante': return `DANTE_CH${(n! - 1) * 8 + 1}_${n! * 8}`
+      case 'lineOut': return `ANALOG_${n}`
+      default: return `!${kind} has no audio output of its own`
+    }
+  },
+  paths: {
+    /** A screen or aux preset's audio layer — the source that takes with the preset. */
+    audioLayer: (t: Target, buffer: string): Path =>
+      midraDest(t).item('preset', buffer).node('audio').node('control').prop('source'),
+    /** A routing point's mode, direct source and follow target. */
+    mode: (point: string, n?: number): Path => midraAudioPoint(point, n).prop('mode'),
+    direct: (point: string, n?: number): Path => midraAudioPoint(point, n).node('directRouting').prop('source'),
+    follow: (point: string, n: number | undefined, what: 'followLiveLayer' | 'followScreen' | 'followWidget'): Path =>
+      midraAudioPoint(point, n).node(what).prop(what === 'followLiveLayer' ? 'layer' : what === 'followScreen' ? 'screen' : 'widget'),
+    /** Mutes: a screen's or aux's audio, an audio output (whole or per channel), an input's channel on a plug. */
+    destinationMute: (t: Target): Path => DeviceObject.node('audio').item(midraCollection(t), t.n).node('control').prop('mute'),
+    outputMute: (key: string, channel?: number): Path => {
+      const out = DeviceObject.node('audio').item('output', key)
+      return (channel === undefined ? out : out.item('channel', channel)).node('control').prop('mute')
+    },
+    inputChannelMute: (plugKey: string, channel: number): Path =>
+      DeviceObject.node('audio').item('input', plugKey).item('channel', channel).node('control').prop('mute'),
+  },
+  /**
+   * The audio input keys an input number owns — one per plug, off the
+   * `AUDIO_INPUT` enum of the Pulse 4K bundle. A mute on "Input 6" has to
+   * land on both its HDMI and its RJ45 plug; which one is live is the
+   * device's business.
+   */
+  inputPlugs(n: number): readonly string[] {
+    const plugs: Record<number, string[]> = {
+      1: ['IN1_SDI_EMBEDDED', 'IN1_HDMI_EMBEDDED'], 2: ['IN2_SDI_EMBEDDED', 'IN2_HDMI_EMBEDDED'],
+      3: ['IN3_SDI_EMBEDDED'], 4: ['IN4_SDI_EMBEDDED'], 5: ['IN5_HDMI_EMBEDDED'],
+      6: ['IN6_HDMI_EMBEDDED', 'IN6_RJ45_EMBEDDED'], 7: ['IN7_HDMI_EMBEDDED', 'IN7_RJ45_EMBEDDED'],
+      8: ['IN8_HDMI_EMBEDDED'], 9: ['IN9_DP_EMBEDDED'], 10: ['IN10_DP_EMBEDDED'],
+    }
+    return plugs[n] ?? [`IN${n}_ACTIVE_PLUG_EMBEDDED`]
+  },
+} as const
+
+/** The `control` node of a routing point: where its mode, direct source and follow target live. */
+function midraAudioPoint(point: string, n?: number): Path {
+  switch (point) {
+    case 'screen': return DeviceObject.item('screen', n!).node('audio').node('control')
+    case 'aux': return DeviceObject.item('auxiliaryScreen', n!).node('audio').node('control')
+    case 'output': return DeviceObject.item('output', n!).node('audio').node('control')
+    case 'lineOut': return DeviceObject.node('audio').item('lineOut', n!).node('control')
+    case 'dante': return DeviceObject.node('audio').node('dante').item('outputGroup', n!).node('control')
+    case 'multiviewer': return DeviceObject.node('multiviewer').node('audio').node('control')
+    default: throw new Error(`${point} is not a Midra audio routing point`)
+  }
+}
+
 export function midraBufferForMode(mode: PresetMode, transition: string): 'UP' | 'DOWN' {
   const up = String(transition ?? '').endsWith('UP')
   return mode === 'PROGRAM' ? (up ? 'UP' : 'DOWN') : up ? 'DOWN' : 'UP'

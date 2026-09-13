@@ -15,6 +15,7 @@ import type {
   Assignment,
   AudioCommand,
   AudioEndpoint,
+  AudioFollow,
   Command,
   Filter,
   FunctionName,
@@ -25,7 +26,7 @@ import type {
 } from './ast.ts'
 import { AUDIO, CATEGORIES, type Category } from './model.ts'
 import { lex, type Token } from './lexer.ts'
-import { LIVEPREMIER, type Platform } from './platforms.ts'
+import { LIVEPREMIER, MIDRA_AUDIO, type Platform } from './platforms.ts'
 
 const CATEGORY_BY_KEYWORD: Record<string, Category> = {
   Source: 'SOURCE',
@@ -63,6 +64,8 @@ class Parser {
   readonly errors: ParseError[] = []
   /** The ranges a number may fall in. A screen is 1–24 on LivePremier, 1–4 on Midra. */
   private readonly DIMS: Platform['dims']
+  /** How audio is addressed on this platform — decides which audio sub-grammar applies. */
+  private readonly AUDIO_MODEL: Platform['audio']
 
   constructor(
     private readonly tokens: readonly Token[],
@@ -70,6 +73,7 @@ class Parser {
     platform: Platform,
   ) {
     this.DIMS = platform.dims
+    this.AUDIO_MODEL = platform.audio
   }
 
   private peek(): Token | undefined {
@@ -497,6 +501,7 @@ class Parser {
 
   /** `Audio Patch <source> To <destination>` | `Audio (Mute|Unmute) <thing>`. */
   private parseAudio(): AudioCommand | undefined {
+    if (this.AUDIO_MODEL === 'routing') return this.parseRoutingAudio()
     if (this.eatKeyword('Patch')) {
       const from = this.parseAudioEndpoint('a source to patch')
       if (!from) return undefined
@@ -517,6 +522,197 @@ class Parser {
     }
 
     this.error('Audio takes Patch, Mute or Unmute', this.peek())
+    return undefined
+  }
+
+  // -------------------------------------------------------------------------
+  // Audio routing on Midra 4K / Alta 4K
+  // -------------------------------------------------------------------------
+
+  /**
+   * One end of a route on a routing platform — see `MIDRA_AUDIO`.
+   *
+   *   Input 3 · Dante 1 Thru 8 · Dante Group 2 · Line Input 1 · Player · Custom 4 · None
+   *   Screen 1 · Aux 2 · Output 3 · Line Output 1 · Dante 9 Thru 16 · Multiviewer
+   *
+   * `Line Input` and `Line Output` reuse the two words the matrix grammar
+   * already has, and read as the vendor labels them ("Line in 1"). Dante is
+   * spoken in the groups of eight the device routes it in: `Dante 1 Thru 8`
+   * is exactly the vendor's "Dante in channels 1-8", and `Dante Group 1` is
+   * the same thing for anyone who prefers the count.
+   */
+  private parseRoutingEndpoint(what: string): AudioEndpoint | undefined {
+    if (this.eatKeyword('None')) return { kind: 'none' }
+    const one = (min: number, max: number, word: string): NumberSet | undefined => this.parseRange(min, max, word)
+    const D = MIDRA_AUDIO.dims
+
+    if (this.eatKeyword('Input')) {
+      const unit = one(D.input.min, D.input.max, 'input')
+      if (!unit) return undefined
+      return { kind: 'input', unit, channels: this.parseOptionalChannels() }
+    }
+    if (this.eatKeyword('Output')) {
+      const unit = one(D.output.min, D.output.max, 'output')
+      if (!unit) return undefined
+      return { kind: 'output', unit, channels: this.parseOptionalChannels() }
+    }
+    if (this.eatKeyword('Screen')) {
+      const unit = one(this.DIMS.screen.min, this.DIMS.screen.max, 'screen')
+      return unit && { kind: 'screen', unit }
+    }
+    if (this.eatKeyword('Aux')) {
+      const unit = one(this.DIMS.aux.min, this.DIMS.aux.max, 'aux')
+      return unit && { kind: 'aux', unit }
+    }
+    if (this.eatKeyword('Line')) {
+      if (this.eatKeyword('Input')) {
+        const unit = one(D.lineIn.min, D.lineIn.max, 'line input')
+        return unit && { kind: 'lineIn', unit }
+      }
+      if (this.eatKeyword('Output')) {
+        const unit = one(D.lineOut.min, D.lineOut.max, 'line output')
+        return unit && { kind: 'lineOut', unit, channels: this.parseOptionalChannels() }
+      }
+      this.error('Line takes Input or Output — Line Input 1 is a source, Line Output 1 a destination', this.peek())
+      return undefined
+    }
+    if (this.eatKeyword('Player')) return { kind: 'media' }
+    if (this.eatKeyword('Custom')) {
+      const unit = one(D.custom.min, D.custom.max, 'custom source')
+      return unit && { kind: 'custom', unit }
+    }
+    if (this.eatKeyword('Multiviewer')) {
+      /* One multiviewer here; a `1` is accepted for the habit and nothing else. */
+      const t = this.peek()
+      if (t?.kind === 'number') {
+        if (t.value !== 1) {
+          this.error(`There is one multiviewer here, not ${t.value}`, t)
+          return undefined
+        }
+        this.pos++
+      }
+      return { kind: 'multiviewer', channels: this.parseOptionalChannels() }
+    }
+    if (this.eatKeyword('Dante')) {
+      let group: number | undefined
+      if (this.eatKeyword('Group')) {
+        const g = one(D.danteGroup.min, D.danteGroup.max, 'Dante group')
+        if (!g) return undefined
+        if (g.values.length !== 1) {
+          this.error('One Dante group at a time', this.peek())
+          return undefined
+        }
+        group = g.values[0]
+      } else {
+        const at = this.peek()
+        const r = one(1, D.danteGroup.max * 8, 'Dante channel')
+        if (!r) return undefined
+        const v = r.values
+        const first = v[0]
+        const aligned = v.length === 8 && (first - 1) % 8 === 0 && v.every((n, i) => n === first + i)
+        if (!aligned) {
+          this.error(
+            'Dante is routed in groups of eight here — say Dante 1 Thru 8, 9 Thru 16, 17 Thru 24 or 25 Thru 32, or Dante Group 1 to 4',
+            at,
+          )
+          return undefined
+        }
+        group = (first - 1) / 8 + 1
+      }
+      return { kind: 'dante', unit: { values: [group], openEnded: false }, channels: this.parseOptionalChannels() }
+    }
+
+    this.error(`Expected ${what} — Input, Dante, Line Input, Player, Custom, None, or Screen, Aux, Output, Line Output, Multiviewer`, this.peek())
+    return undefined
+  }
+
+  /** `Channel 1 Thru 2` after an output-side endpoint; only a mute reads it. */
+  private parseOptionalChannels(): NumberSet | undefined {
+    if (!this.eatKeyword('Channel')) return undefined
+    return this.parseRange(MIDRA_AUDIO.dims.channel.min, MIDRA_AUDIO.dims.channel.max, 'channel')
+  }
+
+  /**
+   * `Audio Patch <source> To <point>` — a fixed source on a routing point.
+   * `Audio Follow <what> On <point>` — the point follows something instead.
+   * `Audio (Mute|Unmute) <thing>`.
+   *
+   * Which sources, points and follows go together is the compiler's call;
+   * the parser only refuses what cannot be spelled.
+   */
+  private parseRoutingAudio(): AudioCommand | undefined {
+    if (this.eatKeyword('Patch')) {
+      const from = this.parseRoutingEndpoint('a source to patch')
+      if (!from) return undefined
+      this.eatKeyword('At') || this.eatKeyword('To')
+      const to = this.parseRoutingEndpoint('a destination to patch it to')
+      if (!to) return undefined
+      return { action: 'PATCH', from, to }
+    }
+
+    if (this.eatKeyword('Follow')) {
+      const at = this.peek()
+      let follow: AudioFollow | undefined
+      if (this.eatKeyword('Audio')) {
+        if (!this.eatKeyword('Layer')) {
+          this.error('Follow Audio Layer — the preset\'s own audio layer', this.peek())
+          return undefined
+        }
+        follow = { what: 'audioLayer' }
+      } else if (this.eatKeyword('Layer')) {
+        const n = this.parseRange(this.DIMS.layer.min, this.DIMS.layer.max, 'layer')
+        if (!n) return undefined
+        if (n.values.length !== 1) {
+          this.error('Audio follows one layer', at)
+          return undefined
+        }
+        follow = { what: 'layer', n: n.values[0] }
+      } else if (this.eatKeyword('Video')) {
+        follow = { what: 'content' }
+      } else if (this.eatKeyword('Widget')) {
+        const n = this.parseRange(MIDRA_AUDIO.dims.widget.min, MIDRA_AUDIO.dims.widget.max, 'widget')
+        if (!n) return undefined
+        if (n.values.length !== 1) {
+          this.error('Audio follows one widget', at)
+          return undefined
+        }
+        follow = { what: 'widget', n: n.values[0] }
+      } else if (this.eatKeyword('Screen')) {
+        /* Numbered for a line out or Dante group; bare for a video output,
+           which follows the screen it shows and cannot pick another. */
+        const t = this.peek()
+        if (t?.kind === 'number') {
+          const n = this.parseRange(this.DIMS.screen.min, this.DIMS.screen.max, 'screen')
+          if (!n) return undefined
+          if (n.values.length !== 1) {
+            this.error('Audio follows one screen', at)
+            return undefined
+          }
+          follow = { what: 'screen', n: n.values[0] }
+        } else {
+          follow = { what: 'screen' }
+        }
+      } else {
+        this.error('Follow takes Layer n, Audio Layer, Video, Screen [n] or Widget n', at)
+        return undefined
+      }
+      if (!this.eatKeyword('On') && !this.eatKeyword('At') && !this.eatKeyword('To')) {
+        this.error('Say what follows it — "… On Screen 1"', this.peek())
+        return undefined
+      }
+      const to = this.parseRoutingEndpoint('the point that should follow')
+      if (!to) return undefined
+      return { action: 'FOLLOW', follow, to }
+    }
+
+    for (const [word, action] of [['Mute', 'MUTE'], ['Unmute', 'UNMUTE']] as const) {
+      if (!this.eatKeyword(word)) continue
+      const to = this.parseRoutingEndpoint(`something to ${word.toLowerCase()}`)
+      if (!to) return undefined
+      return { action, to }
+    }
+
+    this.error('Audio takes Patch, Follow, Mute or Unmute here', this.peek())
     return undefined
   }
 
@@ -559,12 +755,18 @@ class Parser {
       }
       const audio = this.parseAudio()
       if (!audio) return undefined
+      /* A screen's audio layer is per preset, so a patch to a screen may say
+         which — the same trailing word a layer Set takes. The compiler
+         refuses it where it means nothing. */
+      let audioMode: Command['mode']
+      if (this.eatKeyword('Preview')) audioMode = 'PREVIEW'
+      else if (this.eatKeyword('Program')) audioMode = 'PROGRAM'
       const extra = this.peek()
       if (extra) {
         this.error(`Unexpected ${describe(extra)} after the audio command`, extra)
         return undefined
       }
-      return { fn, scope: {}, audio }
+      return audioMode ? { fn, scope: {}, audio, mode: audioMode } : { fn, scope: {}, audio }
     }
 
     const scope: Mutable<Scope> = {}

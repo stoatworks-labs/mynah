@@ -166,7 +166,7 @@ Web RCS architecture over a different object model. `src/lang/platforms.ts`
 spells both; pass `platform: MIDRA` to `run()`/`compile()`/`parse()` and every
 path below comes out instead. Read off a live Pulse 4K (3.3.10, read-only) and
 written on the Midra 4K simulator as a Pulse 4K and the Alta 4K simulator as a
-Zenith 200 on 2026-09-12 — each row was written over AWJ and read back.
+Zenith 200 on 2026-09-12 (audio on 2026-09-13) — each row was written over AWJ and read back.
 
 ```text
 take                      transition/$screen/@items/1/control/@props/xTake         (aux: transition/$auxiliaryScreen/@items/1/…)
@@ -196,7 +196,51 @@ Buffers are `UP`/`DOWN`, and which is program is the transition suffix: `…UP`
 means program is `UP`. The record-mask categories are SOURCE, POS, SIZE,
 OPACITY, CROPPING, MASK, BORDER, TRANSITIONS, EFFECTS, FLYING_CURVE, TIMING,
 SPEED, AUDIO — no CUT_AND_FILL or KEYER. There is no audio matrix of the
-LivePremier shape, and a layer cannot show a still.
+LivePremier shape (audio is routed — the table below), and a layer cannot show
+a still.
+
+### Audio on Midra 4K / Alta 4K — routed, not patched
+
+No channel matrix. Audio moves as eight-channel **sources** — `AUDIO_SOURCE`:
+`NONE`, `IN1`…`IN16`, `IN_DANTE_CH1_8|CH9_16|CH17_24|CH25_32`, `IN_ANALOG_1|2`,
+`IN_MEDIA_PLAYER`, `CUSTOM_1`…`CUSTOM_10` — and every place it comes out is a
+**routing point** that carries one source directly or follows something. The
+part an operator programs is the **audio layer**: one source per screen (or
+aux) preset, recalled with the memory and swapped by the take like the layers,
+heard while the screen's mode is `FOLLOW_AUDIO_LAYER` (the default). Read off
+the live Pulse 4K (3.3.10) and its bundle, written on both simulators on
+2026-09-13 — every row below over AWJ, read back, restored; and every line of
+the grammar through `run()` the same way, 23 lines on each simulator.
+
+```text
+audio layer (per preset)  $screen/@items/1/$preset/@items/UP/audio/control/@props/source          AUDIO_SOURCE   (aux: $auxiliaryScreen/…)
+screen audio mode         $screen/@items/1/audio/control/@props/mode                  DIRECT_ROUTING | FOLLOW_LIVE_LAYER_CONTENT | FOLLOW_AUDIO_LAYER
+screen direct source      $screen/@items/1/audio/control/directRouting/@props/source  AUDIO_SOURCE
+screen follows layer      $screen/@items/1/audio/control/followLiveLayer/@props/layer "1".."8" (a string)
+aux audio mode            $auxiliaryScreen/@items/1/audio/control/@props/mode         DIRECT_ROUTING | FOLLOW_CONTENT | FOLLOW_AUDIO_LAYER
+video output audio        $output/@items/1/audio/control/@props/mode                  NONE | AUTO (the screen it shows) | DIRECT_ROUTING
+                          $output/@items/1/audio/control/directRouting/@props/source  outputs 1–6
+line out                  audio/$lineOut/@items/1/control/@props/{mode, selectedAudioPair}   DIRECT_ROUTING | FOLLOW_SCREEN; CHANNEL_1_2 … CHANNEL_7_8
+                          audio/$lineOut/@items/1/control/{directRouting/@props/source, followScreen/@props/screen}
+Dante output group        audio/dante/$outputGroup/@items/1/control/@props/mode       DIRECT_ROUTING | FOLLOW_SCREEN   (groups 1–4 = channels 1-8 … 25-32)
+                          audio/dante/$outputGroup/@items/1/control/{directRouting/@props/source, followScreen/@props/screen}
+multiviewer               multiviewer/audio/control/@props/mode                       DIRECT_ROUTING | FOLLOW_WIDGET
+                          multiviewer/audio/control/{directRouting/@props/source, followWidget/@props/widget}
+mutes                     audio/$screen/@items/1/control/@props/mute    audio/$auxiliaryScreen/@items/1/control/@props/mute
+                          audio/$output/@items/VIDEO_OUT_1/control/@props/mute        (+ /$channel/@items/3/control/@props/mute)
+                          audio/$input/@items/IN6_HDMI_EMBEDDED/$channel/@items/1/control/@props/mute   one per PLUG, not per input
+what an output carries    audio/$output/@items/VIDEO_OUT_1/status/@props/source       the effective source, read-only
+what is fitted            audio/$source/@items/IN_DANTE_CH1_8/status/@props/isAvailable
+```
+
+Three things the tables do not say: the sub-nodes live under `control`
+(`audio/control/directRouting`), which the Web RCS's own store mirror hides by
+flattening — spelled as a sibling of `control` the device answers "unexpected
+path"; the bundle's `AUDIO_AUX_SOURCE` and `AUDIO_IMX_SOURCE` enums add
+`SCREEN_n` and `VIDEO_OUT_n` forms, and every direct-routing node refused
+every one of them, so the grammar offers `AUDIO_SOURCE` only; and the audio
+layer travels with its buffer through a take — `UP` keeps its source when it
+becomes program — which is why a patch to a screen goes to preview by default.
 
 ⚠️ **`SAVE_FROM_PRW`, on both platforms.** The master save mode enum is
 SAVE_FROM_PGM, SAVE_FROM_PRW, USE_EXISTING_MEMORIES and two `_SHADOW` forms.

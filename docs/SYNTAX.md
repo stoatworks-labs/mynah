@@ -58,11 +58,14 @@ you which letter to add rather than calling the word unknown.
 | Keyword | Short | Range | Device key |
 |---|---|---|---|
 | `Screen` | `Sc` | 1–24 | `S1`…`S24` |
-| `Aux` | `A` | 1–96 | `A1`…`A96` |
+| `Aux` | `Aux` | 1–96 | `A1`…`A96` |
 | `Layer` | `Lay` | `Native`, 1–128 | `NATIVE`, `1`…`128` |
 | `Master` | `Mast` | — | — |
-| `Multiviewer` | `Mu` | 1–8 | output index |
+| `Multiviewer` | `Mul` | 1–8 | output index |
 | `Memory` | `Me` | see below | slot key |
+
+(Ranges are LivePremier's; on Midra 4K / Alta 4K they are 1–4, 1–4, 1–8 and one
+multiviewer, and the parser enforces whichever platform it was given.)
 
 `Master` is the one object with no instance number of its own, so a number
 after it is the memory slot: `Store Master 12` is `Store Master Memory 12`.
@@ -259,7 +262,7 @@ in everything but name:
 | `FlyingCurve` | `F` | `FLYING_CURVE` |
 | `Timing` | `Ti` | `TIMING` |
 | `Speed` | `Sp` | `SPEED` |
-| `CutAndFill` | `Cu` | `CUT_AND_FILL` |
+| `CutAndFill` | `Cut` | `CUT_AND_FILL` |
 | `Mask` | — | `MASK` |
 | `Keyer` | `K` | `KEYER` |
 
@@ -379,7 +382,66 @@ amber rather than green.
 
 ---
 
-## 11. What this does not cover yet
+## 11. Audio
+
+`Audio` after `Set` hands the rest of the line to a sub-grammar of its own,
+because audio has nothing to do with screens, layers and memories — and it is
+the one place the two platforms speak differently, since they *are* different.
+
+### LivePremier — a matrix
+
+Every input channel is a receiver and every output channel a transmitter, and
+a patch writes one into the other:
+
+```
+Set Audio Patch Input 3 Channel 1 Thru 2 To Output 12 Channel 1     a run: 1→1, 2→2
+Set Audio Patch Input 1 To Output 3                                 all eight channels
+Set Audio Patch None To Dante 5                                     clear
+Set Audio Mute Output 3 Channel 1 Thru 4
+Set Audio Unmute Input 7                                            silences it into every destination at once
+```
+
+Endpoints are `Input 1–64`, `Output 1–24`, `Multiviewer 1–2`, each with an
+optional `Channel 1–8`, `Dante 1–64` (flat, no channel — the eight-block
+grouping the device uses is not spoken) and `None`.
+
+### Midra 4K / Alta 4K — routing
+
+No matrix. Audio moves as eight-channel **sources** and every place it comes
+out is a **point** that carries one source, or follows something:
+
+```
+Set Audio Patch Input 3 To Screen 1              the preview preset's audio layer — takes with the preset
+Set Audio Patch Input 3 To Screen 1 Program      the program one, on air now
+Set Audio Patch Custom 4 To Screen 1 Thru 2
+Set Audio Patch Input 4 To Output 1              direct routing: the mode, then the source (two writes)
+Set Audio Patch Line Input 1 To Multiviewer
+Set Audio Patch Input 5 To Dante 1 Thru 8        Dante is routed in groups of eight, and spoken in them
+Set Audio Follow Layer 2 On Screen 1             the screen's audio follows live layer 2's content
+Set Audio Follow Audio Layer On Screen 1         …follows its preset's audio layer (the default)
+Set Audio Follow Video On Aux 1                  an aux follows its video content
+Set Audio Follow Screen On Output 3              a video output follows the screen it shows (Auto)
+Set Audio Follow Screen 2 On Line Output 1       a line out or Dante group follows a numbered screen
+Set Audio Follow Widget 3 On Multiviewer
+Set Audio Mute Screen 1 · Mute Output 1 Channel 3 Thru 4 · Mute Dante 9 Thru 16 · Mute Input 6 Channel 1
+```
+
+Sources: `Input 1–16`, `Dante 1 Thru 8` / `Dante Group 1` (four groups),
+`Line Input 1–2`, `Player` (the media player), `Custom 1–10`, `None`. Points:
+`Screen n`, `Aux n` (their audio layers; `Preview` unless `Program` is said),
+`Output 1–6`, `Line Output 1–2`, `Dante 1 Thru 8` / `Dante Group n`,
+`Multiviewer`. A source is always all eight channels — a `Custom` source is
+where channels are picked — so `Channel` only ever qualifies a mute. A mute on
+`Input n` lands on every plug that input has (HDMI and RJ45, say), because
+which is live is the device's business.
+
+Two words are deliberately not the vendor's: the media player is `Player`,
+because `Media` would take `Me` off `Memory`, and an aux following its content
+is `Follow Video`, because `Content` would take `Co` off `Colour`.
+
+---
+
+## 12. What this does not cover yet
 
 The first pass is memories: recall, store, delete, label, take, and scope.
 The device's object model is far larger than the part addressed here, and the

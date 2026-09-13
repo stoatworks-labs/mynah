@@ -75,6 +75,25 @@ export const KEYWORDS: readonly Keyword[] = [
   kw('Output', 'object'),
   kw('Dante', 'object'),
   kw('Channel', 'object'),
+  // The routing vocabulary of Midra 4K / Alta 4K, where audio is not a matrix
+  // but a set of points that each carry one source or follow something:
+  // `Set Audio Patch Input 3 To Screen 1`, `Set Audio Follow Layer 2 On
+  // Screen 1`, `Set Audio Patch Line Input 1 To Line Output 2`.
+  //
+  // Two words are deliberately NOT the vendor's: the media player is `Player`,
+  // because `Media` would take `Me` off `Memory` — the abbreviation typed more
+  // than any other — and an aux following its video content is `Follow
+  // Video`, because `Content` would take `Co` off `Colour`. The shifts that
+  // remain are cheap: `Follow` moves `FlyingCurve` from `F` to `Fl` and
+  // `Custom` moves `CutAndFill` from `Cu` to `Cut`, both If-clause words.
+  kw('Follow', 'attribute'),
+  kw('Line', 'object'),
+  kw('Player', 'object'),
+  kw('Custom', 'object'),
+  kw('Group', 'object'),
+  kw('Widget', 'object'),
+  kw('Video', 'object'),
+  kw('On', 'operator'),
 
   // Clause
   kw('If', 'clause'),

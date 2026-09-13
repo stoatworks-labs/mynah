@@ -57,28 +57,54 @@ export interface Filter {
   readonly categories?: readonly Category[]
 }
 
-/** What a `Set Audio` is doing. */
-export type AudioAction = 'PATCH' | 'MUTE' | 'UNMUTE'
+/** What a `Set Audio` is doing. `FOLLOW` exists only on a routing platform. */
+export type AudioAction = 'PATCH' | 'MUTE' | 'UNMUTE' | 'FOLLOW'
 
 /**
  * One end of an audio route.
  *
- * `unit` is the input, output or multiviewer number — or, for Dante, the flat
- * channel number, because Dante has no unit an operator thinks in. `channels`
- * is the channel within a unit, and is meaningless for Dante and `None`.
+ * On LivePremier's matrix: `unit` is the input, output or multiviewer number
+ * — or, for Dante, the flat channel number, because Dante has no unit an
+ * operator thinks in — and `channels` is the channel within a unit,
+ * meaningless for Dante and `None`.
+ *
+ * On a routing platform (Midra 4K / Alta 4K) the same shape carries the
+ * other vocabulary: a source is an `input`, a `dante` *group* (`Dante 1 Thru
+ * 8`, `Dante Group 1`), a `lineIn`, the media `Player`, a `custom` mix or
+ * `none`; a destination is a `screen` or `aux` (its preset's audio layer), an
+ * `output`, a `lineOut`, a `dante` group or the `multiviewer`. `channels`
+ * only ever qualifies a mute there.
  */
 export interface AudioEndpoint {
-  readonly kind: 'input' | 'output' | 'dante' | 'multiviewer' | 'none'
+  readonly kind:
+    | 'input' | 'output' | 'dante' | 'multiviewer' | 'none'
+    | 'screen' | 'aux' | 'lineIn' | 'lineOut' | 'media' | 'custom'
   readonly unit?: NumberSet
   readonly channels?: NumberSet
 }
 
+/**
+ * What a routing point is told to follow instead of a fixed source.
+ *
+ * `layer` — the content of live layer `n` (a screen); `audioLayer` — the
+ * preset's own audio layer (a screen or aux); `content` — the aux's video
+ * content; `screen` — a screen's audio, numbered for a line out or Dante
+ * group and unnumbered for a video output, which follows the screen it
+ * shows; `widget` — a multiviewer widget.
+ */
+export interface AudioFollow {
+  readonly what: 'layer' | 'audioLayer' | 'content' | 'screen' | 'widget'
+  readonly n?: number
+}
+
 export interface AudioCommand {
   readonly action: AudioAction
-  /** The source being patched. Absent on a mute. */
+  /** The source being patched. Absent on a mute or a follow. */
   readonly from?: AudioEndpoint
-  /** The destination being patched, or the thing being muted. */
+  /** The destination being patched or told what to follow, or the thing being muted. */
   readonly to?: AudioEndpoint
+  /** Present on a FOLLOW. */
+  readonly follow?: AudioFollow
 }
 
 export interface Command {

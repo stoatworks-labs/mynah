@@ -306,3 +306,39 @@ built — see **cosession shared checkout** (working-practice note, kept in Clau
 than re-deriving the WebSocket, and touched none of their files). Device facts
 live in [livepremier memory banks](https://github.com/stoatworks-labs/fleet-notes/blob/main/notes/reference_livepremier_memory_banks.md), [awj protocol](https://github.com/stoatworks-labs/fleet-notes/blob/main/notes/reference_awj_protocol.md) and
 [webrcs websocket transport](https://github.com/stoatworks-labs/fleet-notes/blob/main/notes/reference_webrcs_websocket_transport.md).
+
+## Audio on Midra 4K / Alta 4K — 2026-09-13
+
+Until today `Set Audio …` on `MIDRA` was refused as "written against
+LivePremier's matrix". The refusal was honest and the object model was
+unexplored. Explored now — the live Pulse 4K's store (read-only, 2026-09-12)
+and its bundle's enums, then every candidate write on both simulators:
+
+- There is no matrix. `AUDIO_SOURCE` is 34 eight-channel sources; every place
+  audio comes out (screen, aux, video output 1–6, line out 1–2, Dante output
+  group 1–4, multiviewer, streaming) has a `mode`, a `directRouting/source`
+  and a follow target. Each screen/aux **preset** carries an audio layer
+  (`presetList/<buf>/audio/control/pp/source`) that takes with the preset and
+  stays with its buffer through the take — verified by taking on the sim.
+- Every direct-routing node and both audio layers accept exactly
+  `AUDIO_SOURCE`. The bundle's `AUDIO_AUX_SOURCE` (adds `SCREEN_1..4`) and
+  `AUDIO_IMX_SOURCE` (adds `VIDEO_OUT_n`, `OUT_DANTE_*`, `OUT_ANALOG_*`) are
+  not accepted anywhere on 3.2.29 / 1.3.7 — probed value by value on ten
+  nodes. So the grammar offers what lands.
+- The sub-nodes are under `control`: `audio/control/directRouting/@props/
+  source`. The Web RCS's redux store flattens them to siblings, and I read
+  the flattened shape first and got "unexpected path" for every one. The
+  action-type names in the bundle (`…_AUDIO_CONTROL_DIRECTROUTING_SET_ONE`)
+  gave the real nesting.
+- Input mutes are per plug (`IN6_HDMI_EMBEDDED`, `IN6_RJ45_EMBEDDED`), not per
+  input; `Mute Input 6 Channel 1` writes both.
+- The simulator updates `audio/outputList/<out>/status/pp/source` when a
+  screen's direct routing changes — the effective source per output, which a
+  panel could show.
+
+Vocabulary: `Player` rather than `Media` (which would take `Me` from
+`Memory`), `Follow Video` rather than `Follow Content` (which would take `Co`
+from `Colour`). `Follow` costs `FlyingCurve` its `F` (now `Fl`) and `Custom`
+costs `CutAndFill` its `Cu` (now `Cut`); both are If-clause words. 231 tests;
+23 lines through `run()` written and read back on each simulator.
+
