@@ -224,6 +224,31 @@ npm run build:lang        # the language core alone, for other consumers
 
 ## Status
 
+**v1.4.0 — a second platform in the language core, and a save mode the device
+had been refusing in silence.**
+
+`compile`, `parse` and `run` take a `platform` — `LIVEPREMIER` (the default,
+byte-identical to before) or `MIDRA`, which spells the same grammar for Midra 4K
+(QuickVu, Pulse, Eikos, QuickMatrix) and Alta 4K (Zenith 100 / 200): takes under
+`transition/…`, memories under `preset/bank`, `preset/auxBank` and
+`preset/masterBank`, `UP`/`DOWN` buffers resolved from the transition state, one
+multiviewer with twenty layouts, and refusals for what the platform lacks (a layer
+bank, NATIVE, stills on a layer, the audio matrix). Every Midra path was written
+on the Midra 4K and Alta 4K simulators and read back — `docs/PATHS.md` has the
+table — and then, on 2026-09-12/13, proven on a **live Pulse 4K** (3.3.10)
+through [LivePremier Plus](https://github.com/stoatworks-labs/livepremier-plus),
+which embeds this core: 35 of 35 lines compiled for `MIDRA` answered on the box,
+and the operator typed `Recall`, `Set … Opacity`, `Store … Preview` and a
+`Delete` at its Console — this grammar's first writes to Midra hardware. The web
+app and the Stream Deck plugin still assume LivePremier; only the core knows the
+second platform.
+
+**Fixed:** the master save mode is `SAVE_FROM_PRW`, not `SAVE_FROM_PVW`, on
+both platforms. The device refused the wrong spelling without a word and kept
+the previous mode, so every `Store Master … Preview` this compiler had ever
+emitted stored from program. Written to the LivePremier simulator and read
+back; the test that had pinned the wrong value now pins the right one.
+
 **v1.3.4 — field testing, and it has driven a real switcher.**
 
 Verified on a physical **Aquilon C** on firmware 6.2.73: all 21 paths in
