@@ -233,6 +233,25 @@ npm run build:lang        # the language core alone, for other consumers
 
 ## Status
 
+**v1.5.0 — audio on Midra 4K / Alta 4K, routed rather than patched.**
+
+There is no channel matrix on that platform. Audio moves as eight-channel
+sources — `Input 1–16`, `Dante 1 Thru 8` (four groups), `Line Input 1–2`,
+`Player`, `Custom 1–10` — and every place it comes out is a point that carries
+one or follows something. `Set Audio Patch Input 3 To Screen 1` writes the
+preview preset's **audio layer**, which takes with the preset like the layers;
+`Set Audio Patch Input 4 To Output 1` sets a video output to direct routing and
+gives it the source; `Set Audio Follow Layer 2 On Screen 1`, `Follow Screen 2 On
+Line Output 1`, `Follow Widget 3 On Multiviewer` set what a point follows; the
+mutes land where the device keeps them, an input's on every plug it has.
+`docs/SYNTAX.md §11` has both platforms' audio grammars side by side and
+`docs/PATHS.md` the table. Every line was written on the Midra 4K simulator as a
+Pulse 4K and the Alta 4K simulator as a Zenith 200 and read back; the object
+model and enums came off a live Pulse 4K. Nothing about LivePremier's matrix
+grammar changed. Two words are deliberately not the vendor's — `Player` for the
+media player and `Follow Video` for an aux following its content — so that
+`Memory` keeps `Me` and `Colour` keeps `Co`.
+
 **v1.4.0 — a second platform in the language core, and a save mode the device
 had been refusing in silence.**
 
@@ -242,19 +261,17 @@ byte-identical to before) or `MIDRA`, which spells the same grammar for Midra 4K
 `transition/…`, memories under `preset/bank`, `preset/auxBank` and
 `preset/masterBank`, `UP`/`DOWN` buffers resolved from the transition state, one
 multiviewer with twenty layouts, and refusals for what the platform lacks (a layer
-bank, NATIVE, stills on a layer). Audio there is **routed, not patched**: `Set
-Audio Patch Input 3 To Screen 1` writes the preset's audio layer, `Set Audio
-Follow Layer 2 On Screen 1` or `Follow Screen 2 On Line Output 1` sets what a
-point follows, and the mutes land where the device keeps them — `docs/SYNTAX.md
-§11` has both platforms' audio grammars side by side. Every Midra path was written
-on the Midra 4K and Alta 4K simulators and read back — `docs/PATHS.md` has the
-table — and then, on 2026-09-12/13, proven on a **live Pulse 4K** (3.3.10)
-through [LivePremier Plus](https://github.com/stoatworks-labs/livepremier-plus),
-which embeds this core: 35 of 35 lines compiled for `MIDRA` answered on the box,
-and the operator typed `Recall`, `Set … Opacity`, `Store … Preview` and a
-`Delete` at its Console — this grammar's first writes to Midra hardware. The web
-app and the Stream Deck plugin still assume LivePremier; only the core knows the
-second platform.
+bank, NATIVE, stills on a layer). Every Midra path was written on the Midra 4K
+and Alta 4K simulators and read back, and then, on 2026-09-12/13, proven on a
+**live Pulse 4K** (3.3.10) through
+[LivePremier Plus](https://github.com/stoatworks-labs/livepremier-plus), which
+embeds this core: 35 of 35 lines compiled for `MIDRA` answered on the box, a
+harness wrote the port's whole vocabulary and read it back, and the operator
+typed `Recall`, `Store … Preview` and `Delete` at its Console — this grammar's
+first writes to Midra hardware. (A `Set … Opacity` typed there the same morning
+was refused by that build's Console, which handed the compiler no device facts
+— a LivePremier Plus bug, fixed in its 0.7.0.) The web app and the Stream Deck
+plugin still assume LivePremier; only the core knows the second platform.
 
 **Fixed:** the master save mode is `SAVE_FROM_PRW`, not `SAVE_FROM_PVW`, on
 both platforms. The device refused the wrong spelling without a word and kept

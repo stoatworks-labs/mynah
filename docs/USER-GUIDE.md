@@ -89,6 +89,28 @@ Set Screen 3 Layer 2 Source 1 Size 50% Position 33% 50%
 **Percentages resolve against the screen's real canvas**, and **position is the layer's centre**,
 because that is the device's own anchor.
 
+**Audio** — `Set Audio …` takes the rest of the line. On LivePremier it is the channel matrix:
+
+```
+Set Audio Patch Input 3 Channel 1 Thru 2 To Output 12 Channel 1
+Set Audio Mute Output 3 Channel 1 Thru 4
+```
+
+**Midra 4K and Alta 4K** (QuickVu, Pulse, Eikos, QuickMatrix, Zenith 100/200) are the other
+platform the language core speaks, through apps that embed it — LivePremier Plus tells it which
+switcher it is talking to. Screens are 1–4, auxes 1–4, layers 1–8, memories 1–200 (50 master),
+and audio is routed rather than patched: each screen preset carries an **audio layer** that takes
+with the preset.
+
+```
+Set Audio Patch Input 3 To Screen 1            the preview preset's audio layer
+Set Audio Follow Layer 2 On Screen 1           the screen's audio follows live layer 2
+Set Audio Follow Screen 2 On Line Output 1     a line out follows a screen
+Set Audio Mute Output 1 Channel 3 Thru 4
+```
+
+This hosted web app and the Stream Deck plugin speak LivePremier only.
+
 ---
 
 ## How it connects
