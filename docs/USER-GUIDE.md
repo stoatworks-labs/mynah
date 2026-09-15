@@ -2,6 +2,10 @@
 
 Mynah is **a lighting-desk command line for Analog Way LivePremier (Aquilon) switchers.**
 
+![The hosted demo with a masked master store typed and compiled but not sent: one line becomes six ordered writes, the record mask narrowed to two screens and …](screenshots/mynah.png)
+
+*The hosted demo with a masked master store typed and compiled but not sent: one line becomes six ordered writes, the record mask narrowed to two screens and two categories, and every path is shown before anything would leave the browser. The simulator is on and nothing here reaches real hardware — the page says so.*
+
 ```
 Recall Screen 1 Memory 5
 Store Master 12 If Screen 1 + 3 Category Source + Position
