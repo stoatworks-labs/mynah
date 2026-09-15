@@ -27,6 +27,10 @@ It runs in a browser with nothing installed, talks to the switcher directly,
 and drives the same commands from a keyboard, an X-Keys panel, or a Stream
 Deck.
 
+![Mynah's hosted demo: the simulator on, a Recall at the prompt, four simulated screens and the vocabulary column](docs/screenshots/mynah.png)
+
+<sub>The hosted demo as it opens: the simulator on, a Recall typed at the prompt, four simulated screens with their program and preview buffers, and the vocabulary column listing every function and object with its shortest unambiguous prefix. Nothing here reaches real hardware, and the page says so.</sub>
+
 <!-- downloads:start -->
 
 ## Download
