@@ -27,9 +27,9 @@ It runs in a browser with nothing installed, talks to the switcher directly,
 and drives the same commands from a keyboard, an X-Keys panel, or a Stream
 Deck.
 
-![Mynah's hosted demo: the simulator on, a Recall at the prompt, four simulated screens and the vocabulary column](docs/screenshots/mynah.png)
+![Mynah's hosted demo compiling a masked master store: one typed line, six ordered writes with every path shown, and the simulated screens beneath](docs/screenshots/mynah.png)
 
-<sub>The hosted demo as it opens: the simulator on, a Recall typed at the prompt, four simulated screens with their program and preview buffers, and the vocabulary column listing every function and object with its shortest unambiguous prefix. Nothing here reaches real hardware, and the page says so.</sub>
+<sub>The hosted demo with a masked master store typed and compiled but not sent: one line becomes six ordered writes, the record mask narrowed to two screens and two categories, and every path is shown before anything would leave the browser. The simulator is on and nothing here reaches real hardware — the page says so.</sub>
 
 <!-- downloads:start -->
 
