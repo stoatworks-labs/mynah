@@ -239,6 +239,12 @@ npm run build:lang        # the language core alone, for other consumers
 
 ## Status
 
+**v1.5.1 — the desktop launcher stops its server on every exit path.** ⌘Q and
+Quit from the Dock left the embedded server running after the app was gone,
+holding the port with no tray left to stop it from; the launcher shell is now
+av-launcher 2c83ad7, which shuts it down on every exit. Nothing in the language
+or the app changed.
+
 **v1.5.0 — audio on Midra 4K / Alta 4K, routed rather than patched.**
 
 There is no channel matrix on that platform. Audio moves as eight-channel
