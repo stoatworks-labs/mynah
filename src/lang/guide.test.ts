@@ -32,7 +32,13 @@ const selection = { targets: [{ kind: 'screen' as const, n: 3 }], layers: [2] }
  * parser should accept.
  */
 function commandsFromGuide(): string[] {
-  const text = readFileSync(new URL('../../docs/GUIDE.md', import.meta.url), 'utf8')
+  // A Windows checkout can carry CRLF line endings (git autocrlf), and the fence
+  // match below anchors on a bare newline: normalise, or the guide reads as empty
+  // and every tag's Windows run fails on the count check.
+  const text = readFileSync(new URL('../../docs/GUIDE.md', import.meta.url), 'utf8').replace(
+    /\r\n/g,
+    '\n',
+  )
   return [...text.matchAll(/```\n([\s\S]*?)```/g)]
     .flatMap((m) => m[1].split('\n'))
     .map((l) =>
