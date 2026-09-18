@@ -239,6 +239,14 @@ npm run build:lang        # the language core alone, for other consumers
 
 ## Status
 
+**v1.5.2 — the desktop launcher says why a start failed.** Pressing Start
+with the port held — another copy of Mynah, or its server started by hand —
+used to look like nothing happening. The launcher now says so on the click
+(and keeps Open available, since what is listening is usually Mynah), names
+a port the OS refuses, and quotes a server that dies right after starting
+with its last output lines; the shell is av-launcher 21bc307. Nothing in the
+language or the app changed.
+
 **v1.5.1 — the desktop launcher stops its server on every exit path.** ⌘Q and
 Quit from the Dock left the embedded server running after the app was gone,
 holding the port with no tray left to stop it from; the launcher shell is now
