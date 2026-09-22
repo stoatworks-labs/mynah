@@ -8,6 +8,11 @@
       name="description"
       content="A lighting-desk command line for Analog Way LivePremier switchers. Type Store, Recall and Take instead of hunting for a button."
     />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- iOS ignores the manifest's icons entirely and wants a PNG of its own. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Tints the status bar and the title bar once installed. -->
+    <meta name="theme-color" content="#0e1013" />
   </head>
   <body>
     <div id="root"></div>
