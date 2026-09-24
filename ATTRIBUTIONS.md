@@ -1,59 +1,51 @@
 # Attributions
 
-Mynah is built on other people's work. This file lists what that work is, who did
-it, and what it is doing here.
+## The switcher
 
-It is generated — the master lists live in the `stoatworks-backend` repo and are
-pushed out by `scripts/sync-attributions.py`. Edit it there, not here.
+Mynah controls Analog Way **LivePremier** (Aquilon) processors. It is **not
+affiliated with or endorsed by Analog Way**, and redistributes no part of their
+software, firmware or documentation.
 
-## Third-party code this project uses
+The control protocol is documented openly by Analog Way in the **AWJ Protocol
+Programmer's Guide**, which covers the port, the wire format and the
+memory-recall paths.
 
-Libraries, SDKs and frameworks the project is built on or bundles.
+Nothing of Analog Way's is redistributed here. Every path this project uses is
+listed in `docs/PATHS.md` in its own words, and every one was verified by
+reading it back off a running device before it was relied on.
 
-### Tauri
+## The grammar
 
-<https://tauri.app>  
-Licence: MIT or Apache-2.0  
-Copyright: The Tauri Programme within The Commons Conservancy
+The command syntax follows the *rules* of lighting-desk command lines, and the
+grandMA3 rules in particular — verb first, unambiguous keyword abbreviation,
+`Thru` / `+` / `-` ranges, an `If` filter clause. No code, data or text from any
+lighting console vendor is used or reproduced. The vocabulary is the switcher's
+own throughout.
 
-A Cargo and npm dependency — of the app itself under src-tauri/, or of the desktop launcher under launcher/src-tauri/.
+Reference material consulted, all publicly published documentation:
 
-Wraps a web front end in a native desktop app using the platform's own webview rather than a bundled browser, so the binary stays small.
+- **MA Lighting** — grandMA3 command-line syntax rules
+- **Avolites** — Titan commands quick reference
+- **ChamSys** — MagicQ programmer documentation
 
-### React
+grandMA3 is a trademark of MA Lighting, Titan of Avolites, MagicQ of ChamSys.
+No affiliation or endorsement is implied by any of them.
 
-<https://react.dev>  
-Licence: MIT  
-Copyright: Meta Platforms, Inc. and affiliates
+## Prior art read
 
-An npm dependency.
+- **`bitfocus/companion-module-analogway-awj`** (MIT) — read as the reference
+  for the Web RCS WebSocket route, which it takes in preference to AWJ. Its
+  README says so itself. No code was copied.
 
-The UI layer for the browser tools and the Electron and Tauri front ends.
+## Dependencies
 
-### The Rust crate ecosystem
+React and React DOM (MIT), Vite (MIT), TypeScript (Apache-2.0), Vitest (MIT).
+Full versions are in `package-lock.json`.
 
-<https://crates.io>  
-Licence: predominantly MIT or Apache-2.0  
-Copyright: the individual crate authors
+The Stream Deck plugin targets Elgato's published SDK. Stream Deck is a
+trademark of Elgato; X-Keys of P.I. Engineering. Neither is affiliated with this
+project.
 
-Cargo dependencies, resolved and pinned in Cargo.lock.
+## Licence
 
-Async runtimes, protocol codecs, serialisation and GUI toolkits. The exact set and versions for any build are in that repo's Cargo.lock, which is the authoritative list.
-
-### The npm ecosystem
-
-<https://www.npmjs.com>  
-Licence: predominantly MIT  
-Copyright: the individual package authors
-
-npm dependencies, resolved and pinned in the lockfile.
-
-Build tooling, test runners and the libraries the front ends are assembled from. The exact set and versions for any build are in that repo's lockfile, which is the authoritative list.
-
-The full transitive dependency set for any build is pinned in this repo's lockfile,
-which is the authoritative list. What is named above is the layers a reader would
-want to know about, not every package that has ever been resolved.
-
-## Getting this wrong
-
-If your work is here and the description is inaccurate, the licence is wrong, or you would rather not be listed — open an issue and it will be fixed.
+Mynah is MIT — see `LICENSE`.
