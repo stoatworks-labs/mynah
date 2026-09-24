@@ -42,6 +42,9 @@ No affiliation or endorsement is implied by any of them.
 React and React DOM (MIT), Vite (MIT), TypeScript (Apache-2.0), Vitest (MIT).
 Full versions are in `package-lock.json`.
 
+The desktop app and its launcher are built on Tauri (MIT or Apache-2.0); their
+Rust crates are pinned in `src-tauri/Cargo.lock` and `launcher/src-tauri/Cargo.lock`.
+
 The Stream Deck plugin targets Elgato's published SDK. Stream Deck is a
 trademark of Elgato; X-Keys of P.I. Engineering. Neither is affiliated with this
 project.
