@@ -1,4 +1,5 @@
-> **AI-assisted project.** This codebase was created with [Claude Code](https://claude.com/claude-code).
+> **AI-assisted project.** This codebase was created with [Claude](https://claude.com/claude-code)
+> (Anthropic), directed and reviewed by a human author.
 > It has driven a real switcher: every verb in the grammar was executed against a physical
 > **Aquilon C** on firmware 6.2.73 — store, recall, label, delete, a layer memory, a program
 > recall, a Take and the six-op masked master store — with the filters read back exactly as
