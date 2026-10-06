@@ -253,6 +253,14 @@ npm run build:lang        # the language core alone, for other consumers
 
 ## Status
 
+**v1.6.0 — variables and arithmetic.** A `$` or `@` variable, or a sum in
+brackets, now stands wherever a number may: screens, ranges, memories,
+sources and amounts. The host supplies the values; the language itself knows
+no names, and there is no eval. An OSC numeric argument may be a string of
+arithmetic too. The hosted build can be installed as an app and runs with no
+signal, and the desktop launcher stops its server with SIGTERM before it
+resorts to SIGKILL.
+
 **v1.5.2 — the desktop launcher says why a start failed.** Pressing Start
 with the port held — another copy of Mynah, or its server started by hand —
 used to look like nothing happening. The launcher now says so on the click
