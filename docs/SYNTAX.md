@@ -129,7 +129,8 @@ inside an `If` — told apart by where they appear.
 ### Amounts
 
 ```ebnf
-amount = [ "At" ] , [ "-" ] , number , [ "%" ] ;
+amount = [ "At" ] , [ "-" ] , ( number , [ "%" ] | value , [ "%" ] ) ;
+value  = variable | "(" , sum , ")" ;          (* see §13 *)
 ```
 
 A bare number is **pixels**; a number with `%` is a proportion of the screen's
@@ -313,14 +314,27 @@ filter      = ( "Screen" | "Aux" | "Layer" ) , range
             | "Category" , category-list ;
 
 range       = range-term , { ( "+" | "-" ) , range-term } ;
-range-term  = number
-            | number , "Thru" , [ number ]
-            | "Thru" , number ;
+range-term  = count
+            | count , "Thru" , [ count ]
+            | "Thru" , count ;
 layer-range = range | "Native" ;
 
-number      = digit , { digit } ;
+count       = number | variable | "(" , sum , ")" ;   (* a whole number *)
+
+sum         = product , { ( "+" | "-" ) , product } ;
+product     = factor , { ( "*" | "/" ) , factor } ;
+factor      = ( "+" | "-" ) , factor | number | variable | "(" , sum , ")" ;
+variable    = ( "$" | "@" ) , name , { "." , segment } ;
+name        = ( letter | "_" ) , { letter | digit | "_" } ;
+segment     = ( letter | digit | "_" ) , { letter | digit | "_" } ;
+
+number      = digit , { digit } , [ "." , digit , { digit } ] ;
 string      = '"' , { character } , '"' ;
 ```
+
+`Memory`, `Master`, `Source` and `Still` take a `count` too, and an amount takes
+a `value` (§3). Inside brackets `+` and `-` are arithmetic; outside them they
+are still the range operators and a value's sign.
 
 ---
 
@@ -449,3 +463,58 @@ intention is for the syntax to grow over it —
 source assignment, layer geometry, transitions, timers, multiviewer layouts.
 The grammar above is built so that growth is new *object keywords*, not new
 grammar rules.
+
+---
+
+## 13. Variables and arithmetic
+
+```
+Set Screen 1 Layer 2 Size ($S1.width / 2) $S1.height
+Set Screen 1 Layer 2 Position (@gap * 3) 540
+Recall Screen 1 Thru @screens Memory @opener
+Set Screen 1 Layer 2 Size @third% 100%
+```
+
+A **variable** or a **sum in brackets** may stand wherever a number may: a
+screen, aux, layer or multiviewer number, a memory slot, a source, and any
+amount — with a `%` after it where a number would take one.
+
+| Sigil | Kind | Owner |
+|---|---|---|
+| `$` | system | the host, which reads it off the switcher. Read-only. |
+| `@` | user | the operator, through whatever the host offers for defining them. |
+
+**The language knows no names.** A host passes `vars` in the parse or run
+context — `resolve(name, kind)`, answering `{ ok: true, value }`, `{ ok: false,
+error }` for a name it knows and cannot answer now, or `undefined` for one it
+has never heard of. The name arrives as typed, without its sigil; case, dots
+and what exists are the host's to decide. A host with no `vars` gets every
+variable refused with a sentence saying a host is needed.
+
+**Resolved in the parser, not the compiler.** Variables are facts, like the
+canvas size the compiler asks `facts` for — but they are consumed where numbers
+are: `Screen 1 Thru @last` cannot be expanded or range-checked until `@last`
+has a value, and a parse error carries the span that points at the variable.
+"Parser resolves, compiler decides" still holds; nothing about a variable is
+policy.
+
+**Arithmetic lives in brackets.** Outside them `+` and `-` already mean a list
+(`1 Thru 8 - 5`) or a sign, so `Screen 4 - 1` stays screens 4-but-not-1 and
+`Screen (4 - 1)` is screen 3. Inside: `+ - * /` with the usual precedence,
+unary signs, nesting to 24 levels, numbers and variables. No `%` operator (a
+`%` belongs after the bracket), no `^`, no scientific notation. No `eval`: a
+recursive-descent reader over the same closed token set the lexer produces.
+
+**Refused, naming the variable, with its span:** an unknown name; text where a
+number goes; a host's own refusal (`$S1.PGM.L2.x` mid-take, in LivePremier
+Plus) in the host's words; division by zero, which would otherwise arrive as a
+clamped maximum; a non-finite result; and a fraction where something is
+counted — `Screen (5 / 2)`, `Memory @half` — which is a mistake in the sum
+rather than a number to round. A literal like `Screen 1.5` is let through as it
+always was. A `Thru` a variable has blown wider than 4096 is refused without
+being spelled out.
+
+**OSC arguments** take the same arithmetic as a value on its own, brackets
+optional — see [LANGUAGES.md](LANGUAGES.md). `evaluateExpression(text, vars)`
+is that path, exported for hosts that want their own fields to agree with the
+command line to the digit.

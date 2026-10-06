@@ -58,11 +58,15 @@ character that cannot begin a Mynah command:
 | `/` | OSC |
 | `{` or `[` with an `"op"`, or a `DeviceObject/` path | AWJ |
 | `{` or `[` otherwise | JSON |
-| `DeviceObject/`, or `replace `/`get `, or contains `@props/` | AWJ |
+| `DeviceObject/`, or `replace `/`get `, or `@props/` / `@items/` at the start or after a `/` | AWJ |
 | anything else | Mynah |
 
 Mynah is the fallback, so a mistyped Mynah command gets Mynah's complaint about
 the word that is wrong.
+
+`@props/` and `@items/` count only where a path has them — first on the line or
+after a slash — because Mynah has user variables: `Size (@items / 2) 100` is a
+Mynah line about a variable called `items`, not an AWJ path.
 
 ---
 
@@ -199,6 +203,24 @@ preset buffer is pending or live right now, and a take swaps them. An address
 that says `preview` is refused when the device state needed to resolve it is
 unknown, rather than guessed at. `a`, `b` and `c` address the buffers directly
 and need no device state.
+
+### Variables in an argument
+
+A numeric argument may be a string of arithmetic, evaluated through the host's
+variables (see [SYNTAX.md](SYNTAX.md#13-variables-and-arithmetic)):
+
+```
+/lp/screen/1/preset/a/layer/2/position/posH "$S1.width / 2"
+/lp/screen/1/preset/a/layer/2/position/posH @gap
+/lp/screen/1/preset/a/layer/2/size/sizeH "1080-80"
+```
+
+Only the **argument**, never the address: rule 1 says the address is the
+target, and a button whose target moved with a variable would mean something
+different every time it was pressed. An enum's value name (`LIVE_3`) and a
+string that is already a plain number pass through untouched. A host that
+holds no device state — a listener on a UDP port, say — should refuse `$`
+names with that reason, exactly as it refuses `preview` and `program`.
 
 ### Not implemented, and reserved
 

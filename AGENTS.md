@@ -79,6 +79,17 @@ error. `dialects.test.ts` asserts the prefix set stays disjoint from the live
 keyword table; that test is the thing that must fail before such a change can
 ship.
 
+**Variables are the host's; the language knows no names.** `$name` (system,
+read off the switcher) and `@name` (user) are tokens; their values come from a
+`vars` resolver the host puts in the parse/run context, exactly as device state
+comes from `facts`. They are resolved **in the parser**, because that is where
+numbers are consumed — a range cannot be expanded or range-checked before its
+ends have values, and a parse error carries the span. Arithmetic lives in
+brackets only, because outside them `+`/`-` are the range operators and a sign.
+`variables.ts` is the reader; it has no `eval` and refuses rather than guesses
+(unknown name, text, division by zero, a fraction where something is counted).
+LivePremier Plus's `core/expr.js` keeps the same rules for its own fields.
+
 **Short forms are derived.** `shortestForm()` computes the minimal unambiguous
 prefix from the whole table. `Mask` has no abbreviation because `Master` shares
 `Mas`. A test asserts every keyword still resolves from its own short form; if

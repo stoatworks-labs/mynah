@@ -123,6 +123,19 @@ as you type; a leading `MYNAH`, `AWJ`, `JSON` or `OSC` says which outright, and
 the picker can turn detection off altogether. See
 [docs/LANGUAGES.md](docs/LANGUAGES.md).
 
+**Variables and arithmetic, for a host that supplies them** — `$S1.width`
+read off the switcher, `@gap` defined by the operator, and sums in brackets,
+anywhere a number goes:
+
+```
+Set Screen 1 Layer 2 Size ($S1.width / 2) $S1.height
+```
+
+The language knows no names; the program embedding it does. [LivePremier
+Plus](https://github.com/stoatworks-labs/livepremier-plus) supplies both kinds;
+this app on its own supplies none yet, and says so when a line uses one. See
+[docs/SYNTAX.md](docs/SYNTAX.md#13-variables-and-arithmetic).
+
 **New to it? Start with the [programming guide](docs/GUIDE.md)** — every
 command from one word upwards, with worked examples you can paste into the
 simulator. The full grammar is in [docs/SYNTAX.md](docs/SYNTAX.md), and the

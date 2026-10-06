@@ -284,7 +284,64 @@ Six lines, and only one of them reaches air.
 
 ---
 
-## 8. When something does not work
+## 8. Variables and arithmetic
+
+Anywhere a number goes — a screen, a memory, a source, a size, a position — a
+**variable** may go instead, or a **sum in brackets**.
+
+```
+Set Screen 1 Layer 2 Size ($S1.width / 2) $S1.height
+Set Screen 1 Layer 2 Position (@gap * 3) 540
+Recall Screen 1 Thru @screens Memory @opener
+Set Screen 1 Layer 2 Size @third% 100%
+```
+
+There are two kinds, told apart by the first character:
+
+| | | |
+|---|---|---|
+| `$S1.width` | **system** | read off the switcher by the program you are typing into — a canvas, an input's rate, where a layer sits in program. You cannot set one. |
+| `@gap` | **user** | yours: a number, or a sum over other variables, defined where the program keeps them. |
+
+**Mynah knows no variable by itself.** The names and their values come from
+the program hosting the command line, which is the thing holding the
+switcher's state. LivePremier Plus supplies both kinds — its Variables panel
+lists every `$` name it can read and keeps your `@` ones per switcher. A host
+that supplies none refuses every variable and says so.
+
+### Why the brackets
+
+Outside brackets, `+` and `-` already mean something: `Screen 1 Thru 8 - 5` is
+seven screens, and a `-` before a value is its sign. So a sum lives in
+brackets, where it cannot be read as a list:
+
+```
+Take Screen 1 Thru 4 - 2                 screens 1, 3 and 4
+Take Screen (4 - 2)                      screen 2
+```
+
+Inside them: `+ - * /`, the usual precedence, nested brackets, numbers and
+variables. A `%` goes after the closing bracket — `(@third * 2)%` — never
+inside it.
+
+### What is refused
+
+Each of these stops the command and names the variable, rather than sending
+something plausible:
+
+- **a name the host does not know** — `Unknown variable $S1.widht`;
+- **text where a number goes** — `$S1.label` is a name, not a size;
+- **anything the host will not vouch for right now** — on LivePremier Plus,
+  `$S1.PGM.L2.x` while screen 1 is mid-take, because which buffer is program
+  is changing hands;
+- **a division by zero**, which would otherwise arrive as the parameter's
+  maximum;
+- **a fraction where something is counted** — `Screen (5 / 2)` is a mistake in
+  the sum, not screen 2 or 3.
+
+---
+
+## 9. When something does not work
 
 **"empty memory — the device ignored this."** You recalled a memory that holds
 nothing. The device accepts that and does nothing at all — no error, no
@@ -306,14 +363,14 @@ are always listed.
 
 ---
 
-## 9. Command history
+## 10. Command history
 
 `↑` and `↓` walk everything you have typed this session, terminal-style. A
 part-typed line is kept aside, so walking up and back down returns it intact.
 
 ---
 
-## 10. Quick reference
+## 11. Quick reference
 
 | | |
 |---|---|
@@ -331,4 +388,5 @@ part-typed line is kept aside, so walking up and back down returns it intact.
 | `Set Screen 3 Layer 2 Size 50%` | half the canvas |
 | `Set Screen 3 Layer 2 Position 33% 50%` | centre, a third across |
 | `Set Screen 3 Layer 2 Opacity 50%` | half opacity |
+| `Set Screen 1 Layer 2 Size ($S1.width / 2) $S1.height` | variables, and a sum in brackets |
 | `Clear` | clear the line, then the scope |
