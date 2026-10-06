@@ -36,6 +36,7 @@
 
 import { compile, type CompileContext } from '../compile.ts'
 import { parse } from '../parser.ts'
+import type { Variables } from '../variables.ts'
 
 import * as awj from './awj.ts'
 import { declared, sniff } from './detect.ts'
@@ -48,6 +49,12 @@ export interface RunContext extends CompileContext {
   readonly language?: LanguageChoice
   /** Extra facts the OSC resolver needs. See `osc.ts`. */
   readonly osc?: osc.OscContext
+  /**
+   * Where `$` and `@` variables get their values, for Mynah lines and OSC
+   * arguments alike. A host that has none passes nothing, and a line that
+   * uses a variable is refused saying a host is needed. See `variables.ts`.
+   */
+  readonly vars?: Variables
 }
 
 /**
@@ -87,7 +94,11 @@ function dispatch(language: LanguageId, body: string, ctx: RunContext): RunResul
     case 'osc':
       /* The platform is a fact about the line's destination, not about the
          language, so it is threaded in here rather than asked for twice. */
-      return osc.run(body, { ...ctx.osc, platform: ctx.osc?.platform ?? ctx.platform })
+      return osc.run(body, {
+        ...ctx.osc,
+        platform: ctx.osc?.platform ?? ctx.platform,
+        vars: ctx.osc?.vars ?? ctx.vars,
+      })
     case 'mynah':
       return mynah(body, ctx)
   }
@@ -101,7 +112,7 @@ function dispatch(language: LanguageId, body: string, ctx: RunContext): RunResul
  * never produces reads: every one of them is a write.
  */
 function mynah(body: string, ctx: RunContext): RunResult {
-  const parsed = parse(body, { platform: ctx.platform })
+  const parsed = parse(body, { platform: ctx.platform, vars: ctx.vars })
   if (!parsed.ok) {
     return {
       ok: false,

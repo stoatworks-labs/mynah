@@ -13,11 +13,32 @@ import { describe, expect, it } from 'vitest'
 
 import { compile, type DeviceFacts } from './compile.ts'
 import { parse } from './parser.ts'
+import type { Variables } from './variables.ts'
 
 /** A connected 1920×1080 screen, so percentages and buffers resolve. */
 const facts: DeviceFacts = {
   buffer: () => 'B',
   canvas: () => ({ w: 1920, h: 1080 }),
+}
+
+/**
+ * The variables the guide's examples use, as a host would supply them — the
+ * guide says plainly that Mynah knows none by itself.
+ */
+const VALUES: Record<string, number> = {
+  's1.width': 1920,
+  's1.height': 1080,
+  gap: 40,
+  screens: 4,
+  opener: 12,
+  third: 33.3,
+}
+const vars: Variables = {
+  resolve: (name, kind) => {
+    const value = VALUES[name.toLowerCase()]
+    if (value === undefined || (kind === 'system') !== name.includes('.')) return undefined
+    return { ok: true, value }
+  },
 }
 
 /** A scope, so the guide's "inside a Select" examples work as printed. */
@@ -53,7 +74,9 @@ function commandsFromGuide(): string[] {
         !l.startsWith('…') &&
         !l.startsWith('[') &&
         !l.includes('@props') &&
-        !l.includes('/'),
+        /* A device path or an OSC address, printed for illustration. A `/`
+           later in the line is a division inside brackets, and is code. */
+        !/^\S*\//.test(l),
     )
 }
 
@@ -65,7 +88,7 @@ describe('the programming guide', () => {
   })
 
   it.each(commands)('compiles: %s', (command) => {
-    const parsed = parse(command)
+    const parsed = parse(command, { vars })
     expect(parsed.ok, parsed.ok ? '' : `parse: ${parsed.errors[0]?.message}`).toBe(true)
     if (!parsed.ok) return
 

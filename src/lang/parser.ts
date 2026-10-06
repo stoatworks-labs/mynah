@@ -8,6 +8,14 @@
  * The parser resolves ranges but applies no defaults. Deciding that an omitted
  * preset mode means Preview on a recall and Program on a store is a policy
  * question, and policy lives in the compiler where it can be stated once.
+ *
+ * It resolves variables too, for the same reason it resolves ranges: this is
+ * where numbers are consumed. `Screen 1 Thru @last` cannot become a list until
+ * `@last` has a value, and the range check that refuses `Screen 25` has to see
+ * the number to refuse it. A variable is a fact the host supplies (`vars`, as
+ * `facts` is for the compiler), not policy, so "parser resolves, compiler
+ * decides" still holds — and a parse error carries a span, so an unknown
+ * variable is underlined where it was typed. See `variables.ts`.
  */
 
 import type {
@@ -27,6 +35,14 @@ import type {
 import { AUDIO, CATEGORIES, type Category } from './model.ts'
 import { lex, type Token } from './lexer.ts'
 import { LIVEPREMIER, MIDRA_AUDIO, type Platform } from './platforms.ts'
+import { ExpressionError, ExpressionReader, type Variables } from './variables.ts'
+
+/**
+ * The widest `Thru` the parser will spell out before range-checking it. A
+ * variable can be anything, and `Screen 1 Thru @big` with `@big` at a
+ * million would otherwise build a million-entry list to say it is out of range.
+ */
+const MAX_SPAN = 4096
 
 const CATEGORY_BY_KEYWORD: Record<string, Category> = {
   Source: 'SOURCE',
@@ -67,11 +83,16 @@ class Parser {
   /** How audio is addressed on this platform — decides which audio sub-grammar applies. */
   private readonly AUDIO_MODEL: Platform['audio']
 
+  private readonly inputLength: number
+
   constructor(
     private readonly tokens: readonly Token[],
-    private readonly inputLength: number,
+    input: string,
     platform: Platform,
+    /** Where `$` and `@` get their values; absent, a variable is an error. */
+    private readonly vars: Variables | undefined,
   ) {
+    this.inputLength = input.length
     this.DIMS = platform.dims
     this.AUDIO_MODEL = platform.audio
   }
@@ -105,6 +126,56 @@ class Parser {
   }
 
   // -------------------------------------------------------------------------
+  // Numbers, and what may stand in for one
+  // -------------------------------------------------------------------------
+
+  /** True if what follows could be a number: a literal, a variable, or a bracket. */
+  private atNumeric(): boolean {
+    const t = this.peek()
+    return t?.kind === 'number' || t?.kind === 'variable' || t?.kind === 'lparen'
+  }
+
+  /**
+   * A number where the grammar wants one — a literal, a variable, or a sum in
+   * brackets — resolved now, through the host's `vars`.
+   *
+   * Call only when `atNumeric()`. Undefined means an error has been recorded.
+   * `index` says the number counts something — a screen, a slot, a source —
+   * and a fraction there is refused rather than rounded: a computed `2.5` is
+   * a mistake in the sum, not a screen. A literal is let through exactly as it
+   * always was.
+   */
+  private numeric(what: string, index: boolean): number | undefined {
+    const t = this.peek()
+    if (t?.kind === 'number') {
+      this.pos++
+      return t.value
+    }
+    if (!t) return undefined
+    const reader = new ExpressionReader(this.tokens, this.pos, this.vars, this.inputLength)
+    let value: number
+    try {
+      value = reader.primary()
+    } catch (err) {
+      if (!(err instanceof ExpressionError)) throw err
+      this.errors.push({ message: err.message, start: err.start, end: err.end })
+      return undefined
+    }
+    const last = this.tokens[reader.pos - 1]
+    this.pos = reader.pos
+    if (index && !Number.isInteger(value)) {
+      const written = this.tokens.slice(this.tokens.indexOf(t), reader.pos).map((k) => k.text).join('')
+      this.errors.push({
+        message: `${what} needs a whole number — ${written} is ${value}`,
+        start: t.start,
+        end: last.end,
+      })
+      return undefined
+    }
+    return value
+  }
+
+  // -------------------------------------------------------------------------
   // Ranges
   // -------------------------------------------------------------------------
 
@@ -123,40 +194,44 @@ class Parser {
     const term = (): number[] | undefined => {
       // Leading `Thru`: from the dimension's floor.
       if (this.eatKeyword('Thru')) {
-        const to = this.peek()
-        if (to?.kind !== 'number') {
-          this.error(`Expected a ${what} number after Thru`, to)
+        if (!this.atNumeric()) {
+          this.error(`Expected a ${what} number after Thru`, this.peek())
           return undefined
         }
-        this.pos++
+        const to = this.numeric(what, true)
+        if (to === undefined) return undefined
         openEnded = true
-        return span(min, to.value)
+        return span(min, to)
       }
 
-      const from = this.peek()
-      if (from?.kind !== 'number') {
-        this.error(`Expected a ${what} number`, from)
+      if (!this.atNumeric()) {
+        this.error(`Expected a ${what} number`, this.peek())
         return undefined
       }
-      this.pos++
+      const from = this.numeric(what, true)
+      if (from === undefined) return undefined
 
       if (this.eatKeyword('Thru')) {
-        const to = this.peek()
-        if (to?.kind === 'number') {
-          this.pos++
-          return span(from.value, to.value)
+        if (this.atNumeric()) {
+          const to = this.numeric(what, true)
+          if (to === undefined) return undefined
+          return span(from, to)
         }
         // Open-ended `1 Thru` runs to the top of the dimension.
         openEnded = true
-        return span(from.value, max)
+        return span(from, max)
       }
 
-      return [from.value]
+      return [from]
     }
 
-    const span = (a: number, b: number): number[] => {
+    const span = (a: number, b: number): number[] | undefined => {
       const lo = Math.min(a, b)
       const hi = Math.max(a, b)
+      if (hi - lo > MAX_SPAN) {
+        this.error(`${what} ${lo} Thru ${hi} is out of range — valid range is ${min} to ${max}`, this.tokens[this.pos - 1])
+        return undefined
+      }
       const out: number[] = []
       for (let n = lo; n <= hi; n++) out.push(n)
       return out
@@ -286,9 +361,14 @@ class Parser {
       this.pos++
       return { value: sign * t.value, percent: true }
     }
-    if (t?.kind === 'number') {
-      this.pos++
-      return { value: sign * t.value, percent: false }
+    if (this.atNumeric()) {
+      const value = this.numeric(what, false)
+      if (value === undefined) return undefined
+      /* `@third%`, `($S1.width / 40)%` — the suffix the lexer kept for a
+         value it could not see. A literal's `%` was read with its digits. */
+      const percent = this.peek()?.kind === 'pct'
+      if (percent) this.pos++
+      return { value: sign * value, percent }
     }
     this.error(`Expected a value for ${what} — a number of pixels, or a percentage like 50%`, t)
     return undefined
@@ -310,11 +390,13 @@ class Parser {
 
   /** True if what follows could begin a value. */
   private atAmount(): boolean {
+    const startsValue = (k: Token | undefined) =>
+      k?.kind === 'number' || k?.kind === 'percent' || k?.kind === 'minus' ||
+      k?.kind === 'variable' || k?.kind === 'lparen'
     const t = this.peek()
-    if (t?.kind === 'number' || t?.kind === 'percent' || t?.kind === 'minus') return true
+    if (startsValue(t)) return true
     if (t?.kind !== 'keyword' || t.keyword.word !== 'At') return false
-    const next = this.tokens[this.pos + 1]
-    return next?.kind === 'number' || next?.kind === 'percent' || next?.kind === 'minus'
+    return startsValue(this.tokens[this.pos + 1])
   }
 
   private parseAssignmentInto(set: Mutable<Assignment>): boolean {
@@ -329,13 +411,13 @@ class Parser {
         return true
       }
       const still = this.eatKeyword('Still')
-      const t = this.peek()
-      if (t?.kind !== 'number') {
-        this.error('Expected a source number, or None / Colour', t)
+      if (!this.atNumeric()) {
+        this.error('Expected a source number, or None / Colour', this.peek())
         return false
       }
-      this.pos++
-      set.source = { family: still ? 'still' : 'live', n: t.value }
+      const n = this.numeric(still ? 'Still' : 'Source', true)
+      if (n === undefined) return false
+      set.source = { family: still ? 'still' : 'live', n }
       return true
     }
 
@@ -584,12 +666,13 @@ class Parser {
     if (this.eatKeyword('Multiviewer')) {
       /* One multiviewer here; a `1` is accepted for the habit and nothing else. */
       const t = this.peek()
-      if (t?.kind === 'number') {
-        if (t.value !== 1) {
-          this.error(`There is one multiviewer here, not ${t.value}`, t)
+      if (this.atNumeric()) {
+        const n = this.numeric('Multiviewer', true)
+        if (n === undefined) return undefined
+        if (n !== 1) {
+          this.error(`There is one multiviewer here, not ${n}`, t)
           return undefined
         }
-        this.pos++
       }
       return { kind: 'multiviewer', channels: this.parseOptionalChannels() }
     }
@@ -680,8 +763,7 @@ class Parser {
       } else if (this.eatKeyword('Screen')) {
         /* Numbered for a line out or Dante group; bare for a video output,
            which follows the screen it shows and cannot pick another. */
-        const t = this.peek()
-        if (t?.kind === 'number') {
+        if (this.atNumeric()) {
           const n = this.parseRange(this.DIMS.screen.min, this.DIMS.screen.max, 'screen')
           if (!n) return undefined
           if (n.values.length !== 1) {
@@ -789,22 +871,22 @@ class Parser {
       // Every other object owns its number, so none of them may do this.
       if (this.eatKeyword('Master')) {
         scope.master = true
-        const t = this.peek()
-        if (t?.kind === 'number') {
-          this.pos++
-          memory = t.value
+        if (this.atNumeric()) {
+          const n = this.numeric('Memory', true)
+          if (n === undefined) return undefined
+          memory = n
         }
         continue
       }
 
       if (this.eatKeyword('Memory')) {
-        const t = this.peek()
-        if (t?.kind !== 'number') {
-          this.error('Expected a memory number', t)
+        if (!this.atNumeric()) {
+          this.error('Expected a memory number', this.peek())
           return undefined
         }
-        this.pos++
-        memory = t.value
+        const n = this.numeric('Memory', true)
+        if (n === undefined) return undefined
+        memory = n
         continue
       }
 
@@ -826,6 +908,14 @@ class Parser {
 
       if (this.parseScopeInto(scope)) continue
       if (this.parseAssignmentInto(set)) continue
+      if (this.errors.length > 0) return undefined
+
+      /* A sum written without its brackets. `+` and `-` would have been read
+         as a list or a sign; `*` and `/` have no meaning out here at all. */
+      if (t?.kind === 'star' || t?.kind === 'slash') {
+        this.error(`Unexpected "${t.text}" — arithmetic goes inside brackets, like (@gap ${t.text} 2)`, t)
+        return undefined
+      }
 
       this.error(`Unexpected ${describe(t)} here`, t)
       return undefined
@@ -862,6 +952,14 @@ function describe(t: Token | undefined): string {
       return '"+"'
     case 'minus':
       return '"-"'
+    case 'variable':
+      return `variable ${t.text}`
+    case 'lparen':
+    case 'rparen':
+    case 'star':
+    case 'slash':
+    case 'pct':
+      return `"${t.text}"`
   }
 }
 
@@ -872,6 +970,12 @@ export interface ParseOptions {
    * on an Aquilon and does not exist on a Pulse 4K. LivePremier when unsaid.
    */
   readonly platform?: Platform
+  /**
+   * Where `$` and `@` variables get their values — the host's, like the
+   * compiler's `facts`. Without it every variable is an error saying so,
+   * which is right for a host with no device state and no user variables.
+   */
+  readonly vars?: Variables
 }
 
 export function parse(input: string, opts: ParseOptions = {}): ParseResult {
@@ -880,7 +984,7 @@ export function parse(input: string, opts: ParseOptions = {}): ParseResult {
     return { ok: false, errors: lexErrors }
   }
 
-  const parser = new Parser(tokens, input.length, opts.platform ?? LIVEPREMIER)
+  const parser = new Parser(tokens, input, opts.platform ?? LIVEPREMIER, opts.vars)
   const command = parser.parseCommand()
   if (!command || parser.errors.length > 0) {
     return {

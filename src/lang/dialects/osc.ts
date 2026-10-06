@@ -49,6 +49,16 @@
  *
  * ## What is not here, and deliberately
  *
+ * ## Variables are values, never addresses
+ *
+ * A numeric argument may be a string of arithmetic — `"$S1.width / 2"`,
+ * `"@gap"`, `"1080-80"` — evaluated through the host's `vars` (see
+ * `variables.ts`). Only the argument: rule 1 says the address is the target,
+ * and an address whose target moved with a variable would be a button that
+ * means something different every time it is pressed. A host with no device
+ * state should refuse `$` names in its `vars`, with the reason, exactly as it
+ * refuses `preview` and `program` here.
+ *
  * There is no relative form (`/norm/rel +0.01`). A relative move needs the
  * current value, which makes it a property of the surface holding the encoder
  * rather than of the address space — the MIDI engine's soft-pickup logic is
@@ -61,6 +71,7 @@ import type { Op } from '../compile.ts'
 import { type BankKind, type PresetMode, type Target } from '../model.ts'
 import type { Path } from '../paths.ts'
 import { LIVEPREMIER, type Platform } from '../platforms.ts'
+import { evaluateExpression, type Variables } from '../variables.ts'
 
 import {
   coerce,
@@ -92,6 +103,8 @@ export interface OscContext {
   readonly params?: ParamTable
   /** Which switcher the addresses are for. LivePremier when unsaid. */
   readonly platform?: Platform
+  /** Where a variable in a numeric argument gets its value. */
+  readonly vars?: Variables
 }
 
 export interface OscMessage {
@@ -247,7 +260,7 @@ function target(
     case 'group': {
       const found = lookup(table(p, ctx).screenGroup, segs, 'screen group')
       const path = p.paths.transitionParam(t, found.spec.path)
-      return parameter(found.spec, path, found.normalised, msg, label(t))
+      return parameter(found.spec, path, found.normalised, msg, label(t), ctx)
     }
 
     default:
@@ -327,7 +340,7 @@ function preset(p: Platform, t: Target, segs: string[], msg: OscMessage, ctx: Os
 
   const spec = lookup(table(p, ctx).layer, segs, 'layer')
   const path = p.paths.layerParam(t, buffer, l, spec.spec.path)
-  return parameter(spec.spec, path, spec.normalised, msg, `${label(t)} preset ${buffer} layer ${l}`)
+  return parameter(spec.spec, path, spec.normalised, msg, `${label(t)} preset ${buffer} layer ${l}`, ctx)
 }
 
 function master(p: Platform, segs: string[], msg: OscMessage): Op[] | typeof SKIPPED {
@@ -516,8 +529,9 @@ function parameter(
   normalised: boolean,
   msg: OscMessage,
   where: string,
+  ctx: OscContext,
 ): Op[] | typeof SKIPPED {
-  const arg = msg.args[0]
+  const arg = numericArgument(spec, normalised, msg.args[0], ctx)
 
   /* A flag with no argument is a trigger: `/…/control/xTake` fires. Anything
      else with no argument is a mistake, not a default. */
@@ -537,6 +551,22 @@ function parameter(
 
   const value = normalised ? denormalise(spec, Number(arg)) : coerce(spec, arg)
   return [op(path, value, `${where} ${spec.id} = ${String(value)}`)]
+}
+
+/**
+ * A numeric parameter's argument, with any arithmetic in it evaluated.
+ *
+ * Only a string that is not already a plain number, and only for a number:
+ * an enum's value names (`LIVE_3`) and a flag's `true` pass through
+ * untouched, as does anything typed on the wire as a number.
+ */
+function numericArgument(spec: ParamSpec, normalised: boolean, arg: unknown, ctx: OscContext): unknown {
+  const numeric = normalised || spec.type === 'int' || spec.type === 'number'
+  if (!numeric || typeof arg !== 'string') return arg
+  if (/^\s*[+-]?(\d+\.?\d*|\.\d+)\s*$/.test(arg)) return arg
+  const result = evaluateExpression(arg, ctx.vars)
+  if (!result.ok) throw new Error(`${paramAddress(spec.id)} — ${result.error}`)
+  return result.value
 }
 
 function groupPath(p: Platform, t: Target, id: string, ctx: OscContext): Path {

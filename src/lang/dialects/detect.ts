@@ -25,7 +25,8 @@
  *
  * Every rule below keys on a character that cannot begin a Mynah command:
  * `/`, `{`, `[`. Mynah commands begin with a verb or an object, always a
- * letter. So the fallback is Mynah, and a line that is *nearly* valid Mynah
+ * letter — a variable (`$S1.width`, `@gap`) or a bracket only ever follows
+ * one, so neither can start a line either. So the fallback is Mynah, and a line that is *nearly* valid Mynah
  * gets Mynah's error message rather than JSON's — which is the one an operator
  * who mistyped `Recal` needs to read.
  */
@@ -85,10 +86,15 @@ export function sniff(body: string): LanguageId {
     return 'json'
   }
 
-  /* AWJ's shorthand, and a bare AWJ path with an assignment. */
+  /* AWJ's shorthand, and a bare AWJ path with an assignment.
+
+     `@props/` and `@items/` count only at the start of the line or after a
+     slash, which is where every AWJ path has them. Mynah has user variables
+     now, and `Size (@items / 2)` is a Mynah line about a variable called
+     `items` — read as AWJ it would get an error about a path. */
   if (/^(replace|get)\s+/i.test(text)) return 'awj'
   if (/^DeviceObject(\/|$)/.test(text)) return 'awj'
-  if (text.includes('@props/') || text.includes('@items/')) return 'awj'
+  if (/(^|\/)@(props|items)\//.test(text)) return 'awj'
 
   return 'mynah'
 }

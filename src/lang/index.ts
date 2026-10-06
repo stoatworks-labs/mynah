@@ -16,6 +16,16 @@ export { AUDIO, CATEGORIES, DIMS, SLOTS, VERIFIED_FIRMWARE } from './model.ts'
 export { Path } from './paths.ts'
 
 /*
+ * Variables: `$name` read off the switcher by the host, `@name` defined by the
+ * operator. The language knows no names — a host passes `vars` in its
+ * parse/run context — and `evaluateExpression` is the same arithmetic for a
+ * value standing on its own, so a host's own fields can agree with the
+ * command line to the digit.
+ */
+export { evaluateExpression, MAX_DEPTH as EXPRESSION_MAX_DEPTH } from './variables.ts'
+export type { Variables, VariableAnswer, VariableKind, EvaluateResult } from './variables.ts'
+
+/*
  * The two platforms the grammar compiles for. A host that knows which switcher
  * it is talking to passes one as `platform` in the run/compile context; one
  * that does not gets LivePremier, exactly as before there was a choice.
