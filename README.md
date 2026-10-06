@@ -36,17 +36,17 @@ Deck.
 
 ## Download
 
-**[v1.5.2](https://github.com/stoatworks-labs/mynah/releases/tag/v1.5.2)** — prebuilt for macOS, Windows and Linux. Pick your platform:
+**[v1.6.1](https://github.com/stoatworks-labs/mynah/releases/tag/v1.6.1)** — prebuilt for macOS, Windows and Linux. Pick your platform:
 
 <details>
 <summary><b>macOS</b> — Universal (Apple Silicon + Intel), Apple Silicon, Intel</summary>
 
 | Build | Download | Size |
 | --- | --- | --- |
-| Universal (Apple Silicon + Intel) · .dmg disk image | [`mynah-1.5.2-macos-universal.dmg`](https://github.com/stoatworks-labs/mynah/releases/download/v1.5.2/mynah-1.5.2-macos-universal.dmg) | 8.8 MB |
-| Apple Silicon · .dmg disk image | [`Mynah_1.5.2_aarch64.dmg`](https://github.com/stoatworks-labs/mynah/releases/download/v1.5.2/Mynah_1.5.2_aarch64.dmg) | 2.2 MB |
-| Intel · .dmg disk image | [`Mynah_1.5.2_x64.dmg`](https://github.com/stoatworks-labs/mynah/releases/download/v1.5.2/Mynah_1.5.2_x64.dmg) | 2.3 MB |
-| Universal (Apple Silicon + Intel) · .pkg installer | [`mynah-1.5.2-macos-universal.pkg`](https://github.com/stoatworks-labs/mynah/releases/download/v1.5.2/mynah-1.5.2-macos-universal.pkg) | 8.8 MB |
+| Universal (Apple Silicon + Intel) · .dmg disk image | [`mynah-1.6.1-macos-universal.dmg`](https://github.com/stoatworks-labs/mynah/releases/download/v1.6.1/mynah-1.6.1-macos-universal.dmg) | 8.9 MB |
+| Apple Silicon · .dmg disk image | [`Mynah_1.6.1_aarch64.dmg`](https://github.com/stoatworks-labs/mynah/releases/download/v1.6.1/Mynah_1.6.1_aarch64.dmg) | 2.4 MB |
+| Intel · .dmg disk image | [`Mynah_1.6.1_x64.dmg`](https://github.com/stoatworks-labs/mynah/releases/download/v1.6.1/Mynah_1.6.1_x64.dmg) | 2.5 MB |
+| Universal (Apple Silicon + Intel) · .pkg installer | [`mynah-1.6.1-macos-universal.pkg`](https://github.com/stoatworks-labs/mynah/releases/download/v1.6.1/mynah-1.6.1-macos-universal.pkg) | 8.9 MB |
 
 </details>
 
@@ -55,7 +55,7 @@ Deck.
 
 | Build | Download | Size |
 | --- | --- | --- |
-| x64 · .exe installer | [`Mynah_1.5.2_x64-setup.exe`](https://github.com/stoatworks-labs/mynah/releases/download/v1.5.2/Mynah_1.5.2_x64-setup.exe) | 2.0 MB |
+| x64 · .exe installer | [`Mynah_1.6.1_x64-setup.exe`](https://github.com/stoatworks-labs/mynah/releases/download/v1.6.1/Mynah_1.6.1_x64-setup.exe) | 2.1 MB |
 
 </details>
 
@@ -64,15 +64,15 @@ Deck.
 
 | Build | Download | Size |
 | --- | --- | --- |
-| x64 · .deb package (Debian/Ubuntu) | [`Mynah_1.5.2_amd64.deb`](https://github.com/stoatworks-labs/mynah/releases/download/v1.5.2/Mynah_1.5.2_amd64.deb) | 2.8 MB |
-| x64 · .rpm package (Fedora/RHEL) | [`Mynah-1.5.2-1.x86_64.rpm`](https://github.com/stoatworks-labs/mynah/releases/download/v1.5.2/Mynah-1.5.2-1.x86_64.rpm) | 2.8 MB |
+| x64 · .deb package (Debian/Ubuntu) | [`Mynah_1.6.1_amd64.deb`](https://github.com/stoatworks-labs/mynah/releases/download/v1.6.1/Mynah_1.6.1_amd64.deb) | 3.0 MB |
+| x64 · .rpm package (Fedora/RHEL) | [`Mynah-1.6.1-1.x86_64.rpm`](https://github.com/stoatworks-labs/mynah/releases/download/v1.6.1/Mynah-1.6.1-1.x86_64.rpm) | 3.0 MB |
 
 </details>
 
 Also in this release:
 
-- [`Mynah_1.5.2_aarch64.app.tar.gz`](https://github.com/stoatworks-labs/mynah/releases/download/v1.5.2/Mynah_1.5.2_aarch64.app.tar.gz) — Source tarball, 2.2 MB
-- [`Mynah_1.5.2_x64.app.tar.gz`](https://github.com/stoatworks-labs/mynah/releases/download/v1.5.2/Mynah_1.5.2_x64.app.tar.gz) — Source tarball, 2.3 MB
+- [`Mynah_1.6.1_aarch64.app.tar.gz`](https://github.com/stoatworks-labs/mynah/releases/download/v1.6.1/Mynah_1.6.1_aarch64.app.tar.gz) — macOS app bundle (updater archive; the .dmg is the install), 2.4 MB
+- [`Mynah_1.6.1_x64.app.tar.gz`](https://github.com/stoatworks-labs/mynah/releases/download/v1.6.1/Mynah_1.6.1_x64.app.tar.gz) — macOS app bundle (updater archive; the .dmg is the install), 2.5 MB
 
 All builds, checksums and release notes: [github.com/stoatworks-labs/mynah/releases](https://github.com/stoatworks-labs/mynah/releases).
 
