@@ -1,10 +1,12 @@
 > **AI-assisted project.** This codebase was created with [Claude](https://claude.com/claude-code)
 > (Anthropic), directed and reviewed by a human author.
-> It's driven a real switcher: every verb in the grammar has been run against a physical
-> **Aquilon C** on firmware 6.2.73 (store, recall, label, delete, a layer memory, a program
-> recall, a Take and the six-op masked master store), with the filters read back exactly as
-> compiled, and the hardware found two bugs the simulator never showed. **Neither the X-Keys nor
-> the Stream Deck path has ever been run against real hardware.** See [Status](#status).
+> It's driven a real switcher: Mynah's own store, recall, label, delete and Take have run
+> against a physical **Aquilon C** on firmware 6.2.73 (a layer memory, a program recall and the
+> six-op masked master store among them), with the filters read back exactly as compiled, and
+> the hardware found two bugs the simulator never showed. `Set`, for live layers and audio,
+> came later and has only been written to hardware by a separate test harness, not by Mynah.
+> **Neither the X-Keys nor the Stream Deck path has ever been run against real hardware.** See
+> [Status](#status).
 
 # Mynah
 
@@ -321,11 +323,11 @@ back, and the test that had pinned the wrong value now pins the right one.
 **v1.3.4: field testing, and it's driven a real switcher.**
 
 Verified on a physical **Aquilon C** on firmware 6.2.73: all 21 paths in
-`docs/PATHS.md` resolve, and every verb was run from the command line (store, recall,
-label, delete, a layer memory, a program recall, a Take, and the six-op masked master
-store), with the filters read back exactly as compiled. The empty-memory behaviour was
-identical to the simulator's. The test memories were deleted afterwards and the box left
-clean.
+`docs/PATHS.md` resolve, and every verb the grammar had then, before `Set`, was run from
+the command line (store, recall, label, delete, a layer memory, a program recall, a Take,
+and the six-op masked master store), with the filters read back exactly as compiled. The
+empty-memory behaviour was identical to the simulator's. The test memories were deleted
+afterwards and the box left clean.
 
 The hardware also found two bugs, both fixed: a label was reported unconfirmed
 because the echo matcher only accepted `true`, and preview turned out to map to
@@ -346,7 +348,7 @@ against real hardware. And there's a distinction worth keeping. The box has answ
 every path this grammar *emits*, including live layer control and the audio matrix, and
 writes to those same paths were executed and restored on hardware, but by a separate test
 harness rather than by Mynah itself. So the vocabulary is proven on a device, but Mynah's
-own hand on the wire is only proven for the memory verbs, not yet for the newer ones. The
+own hand on the wire is only proven for the memory verbs and Take, not yet for `Set`. The
 object model is bigger still, and the syntax is built to grow over it.
 
 <!-- selfhost:start -->
