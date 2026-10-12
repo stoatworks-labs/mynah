@@ -1,10 +1,11 @@
 # Mynah user guide
 
-Mynah is **a lighting-desk command line for Analog Way LivePremier (Aquilon) switchers.**
+Mynah is a lighting-desk command line for Analog Way LivePremier (Aquilon) switchers: you
+type what you want the switcher to do in one line, and press Enter.
 
 ![The hosted demo with a masked master store typed and compiled but not sent: one line becomes six ordered writes, the record mask narrowed to two screens and …](screenshots/mynah.png)
 
-*The hosted demo with a masked master store typed and compiled but not sent: one line becomes six ordered writes, the record mask narrowed to two screens and two categories, and every path is shown before anything would leave the browser. The simulator is on and nothing here reaches real hardware — the page says so.*
+*The hosted demo with a masked master store typed and compiled but not sent: one line becomes six ordered writes, the record mask narrowed to two screens and two categories, and every path is shown before anything would leave the browser. The simulator's on and nothing here reaches real hardware, and the page says so.*
 
 ```
 Recall Screen 1 Memory 5
@@ -13,17 +14,17 @@ Recall Screen 1 Thru 4 Memory 7 Program
 Take
 ```
 
-Type the command, press Enter. **The grammar rules are grandMA3's** — verb first, any unambiguous
-abbreviation, `Thru` / `+` / `-` ranges, an `If` clause that masks a store. **The vocabulary is the
+**The grammar rules are grandMA3's**: verb first, any unambiguous abbreviation,
+`Thru` / `+` / `-` ranges, and an `If` clause that masks a store. **The vocabulary is the
 switcher's own**: Screen, Aux, Layer, Master, Memory, Preview, Program. Nothing here calls anything
 a fixture or a cue.
 
-A LivePremier has a lot of memories — 1,000 screen, 500 master, 50 layer — and the vendor UI
-reaches them by pointing at things. Anyone who has operated a lighting desk knows the alternative:
+A LivePremier has a lot of memories (1,000 screen, 500 master, 50 layer), and the vendor UI
+gets to them by pointing at things. Anyone who's run a lighting desk knows the alternative:
 **say what you want, in one line, without your eyes leaving the screen.**
 
 > This guide is the operator's overview. **New to it? [docs/GUIDE.md](GUIDE.md) is the programming
-> guide** — every command from one word upwards, with worked examples you can paste into the
+> guide**, with every command from one word upwards and worked examples you can paste into the
 > simulator. The full grammar is in [SYNTAX.md](SYNTAX.md), and the device paths behind it, with the
 > firmware they were verified on, are in [PATHS.md](PATHS.md).
 >
@@ -33,7 +34,7 @@ reaches them by pointing at things. Anyone who has operated a lighting desk know
 
 ## Read this first: the hosted copy cannot drive a switcher
 
-**A LivePremier serves its web UI over plain http on port 80, with 443 closed.** There is no
+**A LivePremier serves its web UI over plain http on port 80, with 443 closed.** There's no
 secure WebSocket to connect to, and browsers block an insecure socket from a secure page as mixed
 content.
 
@@ -44,18 +45,18 @@ content.
 | the **desktop app** | **yes** |
 | **the hosted https:// copy** | **no** — blocked before the socket leaves the browser |
 
-This is not a limitation anyone can code around. **The hosted copy runs a simulator instead**, and
-says so in a banner you cannot miss.
+Nobody can code around this. **The hosted copy runs a simulator instead**, and says so in a
+banner you can't miss.
 
-**The desktop app is the simple answer** — macOS, Windows and Linux, about 5 MB, talking to the
-switcher directly with no browser sandbox in the way.
+**The desktop app is the simple answer.** It runs on macOS, Windows and Linux, it's about 5 MB,
+and it talks to the switcher directly with no browser sandbox in the way.
 
 ---
 
 ## The two defaults that decide what reaches air
 
-**An unqualified `Recall` goes to Preview. An unqualified `Store` takes from Program** — because
-that is the look you just made live, and the device's own default agrees.
+**An unqualified `Recall` goes to Preview. An unqualified `Store` takes from Program**, because
+that's the look you just made live, and the device's own default agrees.
 
 **So getting to air always costs an explicit word: `Program`, or `Take`.** A recall never reaches
 program by accident.
@@ -64,18 +65,18 @@ program by accident.
 
 ## An empty memory is reported as empty
 
-The device **accepts a recall of a slot that holds nothing, and then does nothing** — no error, no
+The device **accepts a recall of a slot that holds nothing, and then does nothing**: no error, no
 response at all.
 
 Mynah watches for that silence and says `empty memory` rather than `done`, **because a green tick
-on a command that changed nothing is worse than no feedback.** If you see it, the slot is empty;
-the command was not wrong.
+on a command that changed nothing is worse than no feedback.** If you see it, the slot's empty and
+the command wasn't wrong.
 
 ---
 
 ## What it drives
 
-**Memories** — recall, store, delete, label, take, and scope.
+**Memories**: recall, store, delete, label, take, and scope.
 
 | Bank | Slots | Scope |
 |---|---|---|
@@ -84,16 +85,16 @@ the command was not wrong.
 | Layer | 1–50 | Screen × Preview/Program × layer (Native, 1–128) |
 | Multiviewer | 1–50 | output |
 
-**Live layer control** — source, size, position and opacity, on any layer of any screen:
+**Live layer control**: source, size, position and opacity, on any layer of any screen:
 
 ```
 Set Screen 3 Layer 2 Source 1 Size 50% Position 33% 50%
 ```
 
 **Percentages resolve against the screen's real canvas**, and **position is the layer's centre**,
-because that is the device's own anchor.
+because that's the device's own anchor.
 
-**Audio** — `Set Audio …` takes the rest of the line. On LivePremier it is the channel matrix:
+**Audio**: `Set Audio …` takes the rest of the line. On LivePremier it's the channel matrix:
 
 ```
 Set Audio Patch Input 3 Channel 1 Thru 2 To Output 12 Channel 1
@@ -101,8 +102,8 @@ Set Audio Mute Output 3 Channel 1 Thru 4
 ```
 
 **Midra 4K and Alta 4K** (QuickVu, Pulse, Eikos, QuickMatrix, Zenith 100/200) are the other
-platform the language core speaks, through apps that embed it — LivePremier Plus tells it which
-switcher it is talking to. Screens are 1–4, auxes 1–4, layers 1–8, memories 1–200 (50 master),
+platform the language core speaks, through apps that embed it (LivePremier Plus tells it which
+switcher it's talking to). Screens are 1–4, auxes 1–4, layers 1–8, memories 1–200 (50 master),
 and audio is routed rather than patched: each screen preset carries an **audio layer** that takes
 with the preset.
 
@@ -119,15 +120,15 @@ This hosted web app and the Stream Deck plugin speak LivePremier only.
 
 ## How it connects
 
-The browser cannot open a raw TCP socket, so the documented control protocol on port 10606 is out
-of reach from a page. **Mynah uses the Web RCS WebSocket instead** — the same socket the vendor's
+A browser can't open a raw TCP socket, so the documented control protocol on port 10606 is out
+of reach from a page. **Mynah uses the Web RCS WebSocket instead**, the same socket the vendor's
 own UI speaks.
 
-That is better than a bridge in three ways: no install, **no five-client cap**, and it pushes state
-without a subscription list to get wrong.
+That beats a bridge in three ways: there's nothing to install, there's **no five-client cap**,
+and it pushes state without a subscription list to get wrong.
 
 It also means **Mynah sees what a human does in the vendor UI**, and follows the Web RCS's own
-screen selection — so selecting a screen in either place selects it in both.
+screen selection, so selecting a screen in either place selects it in both.
 
 ---
 

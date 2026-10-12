@@ -1,15 +1,15 @@
 > **AI-assisted project.** This codebase was created with [Claude](https://claude.com/claude-code)
 > (Anthropic), directed and reviewed by a human author.
-> It has driven a real switcher: every verb in the grammar was executed against a physical
-> **Aquilon C** on firmware 6.2.73 — store, recall, label, delete, a layer memory, a program
-> recall, a Take and the six-op masked master store — with the filters read back exactly as
+> It's driven a real switcher: every verb in the grammar has been run against a physical
+> **Aquilon C** on firmware 6.2.73 (store, recall, label, delete, a layer memory, a program
+> recall, a Take and the six-op masked master store), with the filters read back exactly as
 > compiled, and the hardware found two bugs the simulator never showed. **Neither the X-Keys nor
 > the Stream Deck path has ever been run against real hardware.** See [Status](#status).
 
 # Mynah
 
-A lighting-desk command line for Analog Way LivePremier (Aquilon) switchers —
-and, as a language core other apps embed, for Midra 4K and Alta 4K too.
+A lighting-desk command line for Analog Way LivePremier (Aquilon) switchers, and, as a
+language core other apps embed, for Midra 4K and Alta 4K too.
 
 ```
 Recall Screen 1 Memory 5
@@ -18,11 +18,10 @@ Recall Screen 1 Thru 4 Memory 7 Program
 Take
 ```
 
-Type the command, press Enter. The grammar rules are grandMA3's — verb first,
-any unambiguous abbreviation, `Thru` / `+` / `-` ranges, an `If` clause that
-masks a store. The vocabulary is the switcher's own: Screen, Aux, Layer,
-Master, Memory, Preview, Program. Nothing here calls anything a fixture or a
-cue.
+Type the command and press Enter. The grammar rules are grandMA3's: verb first, any
+unambiguous abbreviation, `Thru` / `+` / `-` ranges, and an `If` clause that masks a store.
+The vocabulary is the switcher's own (Screen, Aux, Layer, Master, Memory, Preview, Program),
+so nothing here calls anything a fixture or a cue. The lighting department can keep those.
 
 It runs in a browser with nothing installed, talks to the switcher directly,
 and drives the same commands from a keyboard, an X-Keys panel, or a Stream
@@ -30,7 +29,7 @@ Deck.
 
 ![Mynah's hosted demo compiling a masked master store: one typed line, six ordered writes with every path shown, and the simulated screens beneath](docs/screenshots/mynah.png)
 
-<sub>The hosted demo with a masked master store typed and compiled but not sent: one line becomes six ordered writes, the record mask narrowed to two screens and two categories, and every path is shown before anything would leave the browser. The simulator is on and nothing here reaches real hardware — the page says so.</sub>
+<sub>The hosted demo with a masked master store typed and compiled but not sent: one line becomes six ordered writes, the record mask narrowed to two screens and two categories, and every path is shown before anything would leave the browser. The simulator's on and nothing here reaches real hardware, and the page says so.</sub>
 
 <!-- downloads:start -->
 
@@ -82,16 +81,16 @@ macOS builds are signed and notarised and open normally. The Windows builds are 
 
 ## Why
 
-A LivePremier has a lot of memories — 1,000 screen, 500 master, 50 layer — and
-the vendor Web RCS reaches them by pointing at things. Anyone who has operated
-a lighting desk knows the alternative: say what you want, in one line, without
-your eyes leaving the screen. That is all this is.
+A LivePremier has a lot of memories (1,000 screen, 500 master, 50 layer), and the vendor's
+Web RCS gets to them by pointing at things. Anyone who's run a lighting desk knows the
+alternative: say what you want, in one line, without your eyes leaving the screen. That's all
+this is.
 
 ## What it does today
 
-**Memories** — recall, store, delete, label, take, and scope.
+**Memories**: recall, store, delete, label, take, and scope.
 
-**Live layer control** — source, size, position and opacity, on any layer of
+**Live layer control**: source, size, position and opacity, on any layer of
 any screen:
 
 ```
@@ -99,7 +98,7 @@ Set Screen 3 Layer 2 Source 1 Size 50% Position 33% 50%
 ```
 
 Percentages resolve against the screen's real canvas, and position is the
-layer's centre because that is the device's anchor.
+layer's centre because that's the device's anchor.
 
 | Bank | Slots | Scope |
 |---|---|---|
@@ -108,8 +107,8 @@ layer's centre because that is the device's anchor.
 | Layer | 1–50 | Screen × Preview/Program × layer (Native, 1–128) |
 | Multiviewer | 1–50 | output |
 
-**Four command languages** — the same line accepts Mynah, raw AWJ, raw Web RCS
-store JSON, and OSC. These are the same write:
+**Four command languages.** The same line accepts Mynah, raw AWJ, raw Web RCS store JSON,
+and OSC. These four are all the same write:
 
 ```
 Take Screen 1
@@ -118,12 +117,12 @@ AWJ DeviceObject/$screenAuxGroup/@items/S1/control/@props/xTake = true
 /lp/screen/1/take
 ```
 
-Each line is read as whichever language it looks like, and the verdict is shown
-as you type; a leading `MYNAH`, `AWJ`, `JSON` or `OSC` says which outright, and
-the picker can turn detection off altogether. See
+Each line is read as whichever language it looks like, and you see the verdict as you
+type. A leading `MYNAH`, `AWJ`, `JSON` or `OSC` says which outright, and the picker can turn
+detection off altogether. See
 [docs/LANGUAGES.md](docs/LANGUAGES.md).
 
-**Variables and arithmetic, for a host that supplies them** — `$S1.width`
+**Variables and arithmetic, for a host that supplies them**: `$S1.width`
 read off the switcher, `@gap` defined by the operator, and sums in brackets,
 anywhere a number goes:
 
@@ -131,12 +130,12 @@ anywhere a number goes:
 Set Screen 1 Layer 2 Size ($S1.width / 2) $S1.height
 ```
 
-The language knows no names; the program embedding it does. [LivePremier
-Plus](https://github.com/stoatworks-labs/livepremier-plus) supplies both kinds;
-this app on its own supplies none yet, and says so when a line uses one. See
+The language doesn't know any names; the program embedding it does.
+[LivePremier Plus](https://github.com/stoatworks-labs/livepremier-plus) supplies both kinds.
+This app on its own doesn't supply any yet, and says so when a line uses one. See
 [docs/SYNTAX.md](docs/SYNTAX.md#13-variables-and-arithmetic).
 
-**New to it? Start with the [programming guide](docs/GUIDE.md)** — every
+**New to it? Start with the [programming guide](docs/GUIDE.md)**, which goes through every
 command from one word upwards, with worked examples you can paste into the
 simulator. The full grammar is in [docs/SYNTAX.md](docs/SYNTAX.md), and the
 device paths behind it, with the firmware they were verified on, are in
@@ -145,25 +144,25 @@ device paths behind it, with the firmware they were verified on, are in
 ## Two things worth knowing
 
 **A recall never reaches program by accident.** An unqualified `Recall` goes to
-Preview. An unqualified `Store` takes from Program, because that is the look
-you just made live — and the device's own default agrees. Getting to air always
-costs an explicit word: `Program`, or `Take`.
+Preview. An unqualified `Store` takes from Program, because that's the look
+you just made live, and the device's own default agrees. Getting to air always
+costs you an explicit word: `Program`, or `Take`.
 
 **An empty memory is reported as empty.** The device accepts a recall of a slot
-that holds nothing, and then does nothing — no error, no response at all. Mynah
+that holds nothing, then does nothing, with no error and no response at all. Mynah
 watches for that silence and says `empty memory` rather than `done`, because a
 green tick on a command that changed nothing is worse than no feedback.
 
 ## Connecting
 
-The browser cannot open a raw TCP socket, so the documented AWJ protocol on
+A browser can't open a raw TCP socket, so the documented AWJ protocol on
 port 10606 is out of reach from a page. Mynah uses the Web RCS WebSocket
-instead — the same socket the vendor's own UI speaks, on port 80 of a device or
+instead, the same socket the vendor's own UI speaks, on port 80 of a device or
 3000 of the simulator. It needs no bridge and no install, has no five-client
 cap, and pushes state without a subscription list to get wrong.
 
-An AWJ message typed at the command line still runs in a browser: it is
-converted to the store spelling and lands at the same node. What a page cannot
+An AWJ message typed at the command line still runs in a browser: it's
+converted to the store spelling and lands at the same node. What a page can't
 do is read one back, because that socket carries changes rather than answers.
 **The desktop app opens a real AWJ socket**, which is what makes
 `AWJ get DeviceObject/system/$device/@items/1/@props/dev` answerable.
@@ -174,7 +173,7 @@ selects it in both.
 
 ### The desktop app, if you want the simple answer
 
-Download it and it just works — macOS, Windows and Linux, about 5 MB. It talks
+Download it and it just works, on macOS, Windows and Linux, at about 5 MB. It talks
 to the switcher directly, with no browser sandbox in the way.
 
 ```bash
@@ -185,7 +184,7 @@ npm run desktop:build  # build the installers
 ### It has to be served over http, and that is not negotiable
 
 A LivePremier serves the Web RCS over **plain http on port 80, with 443 closed**.
-There is no `wss://` to connect to, and browsers block an insecure WebSocket
+There's no `wss://` to connect to, and browsers block an insecure WebSocket
 from a secure page as mixed content. So:
 
 | Where Mynah runs | Can it drive a switcher? |
@@ -196,7 +195,7 @@ from a secure page as mixed content. So:
 | the hosted https:// copy | **no** — blocked before the socket leaves the browser |
 
 So the hosted copy runs a **simulator instead**, and says so in a banner you
-cannot miss. It is a model of a LivePremier built into the page: four screens
+can't miss. It's a model of a LivePremier built into the page: four screens
 with layers and three preset buffers each, the four memory banks, and a
 wireframe of what every screen is putting out. Recall a memory and watch the
 preview change; press Take and watch the buffers swap.
@@ -209,27 +208,27 @@ things worth meeting for the first time somewhere other than a show:
 - preview and program are names for whichever buffer is pending or live, **the
   mapping differs per screen**, and a Take swaps it
 
-The simulator is available in every build, not just the hosted one — tick
+The simulator's in every build, not just the hosted one: tick
 **Simulator** in the connection bar.
 
 For live control on a show, use the desktop app, the container, or a local
 checkout.
 
-And no, a proxy cannot fix the hosted copy. A Cloudflare Worker runs at the
-edge and cannot reach a switcher on your own network, and tunnelling one out to
-the public internet would expose an **unauthenticated** control interface —
+And no, a proxy can't fix the hosted copy. A Cloudflare Worker runs at the
+edge and can't reach a switcher on your own network, and tunnelling one out to
+the public internet would expose an **unauthenticated** control interface, so
 anyone who reached it could drive your show. The desktop app is the answer to
 that question.
 
 ## Devices
 
-Keyboard, X-Keys and Stream Deck all run the same grammar — see
-[docs/DEVICES.md](docs/DEVICES.md). The short version: an X-Keys panel is
-opened directly from the browser over WebHID, and a Stream Deck cannot be,
-because Elgato's software holds it.
+Keyboard, X-Keys and Stream Deck all run the same grammar (see
+[docs/DEVICES.md](docs/DEVICES.md)). The short version: the browser opens an X-Keys panel
+directly over WebHID, but it can't open a Stream Deck, because Elgato's software has hold of
+it.
 
-For a Stream Deck there are two routes. The bundled Elgato plugin in
-[`streamdeck/`](streamdeck/), or — better, if you already run Companion —
+For a Stream Deck there are two routes: the bundled Elgato plugin in
+[`streamdeck/`](streamdeck/), or, better if you already run Companion,
 **[companion-module-mynah](https://github.com/stoatworks-labs/companion-module-mynah)**,
 which brings pages, variables, feedbacks and a preset library of around a
 hundred ready-made buttons. Both bundle the compiler from `src/lang/` rather
@@ -253,53 +252,49 @@ npm run build:lang        # the language core alone, for other consumers
 
 ## Status
 
-**v1.6.1 — variables and arithmetic.** A `$` or `@` variable, or a sum in
-brackets, now stands wherever a number may: screens, ranges, memories,
-sources and amounts. The host supplies the values; the language itself knows
-no names, and there is no eval. An OSC numeric argument may be a string of
-arithmetic too. The hosted build can be installed as an app and runs with no
-signal, and the desktop launcher stops its server with SIGTERM before it
-resorts to SIGKILL. (v1.6.0 carried all of this but its desktop app did not
-build: Tauri's JavaScript and Rust packages were on different minor versions.
-v1.6.1 is the same release with them matched, at Tauri 2.12.)
+**v1.6.1: variables and arithmetic.** A `$` or `@` variable, or a sum in brackets, can now
+stand wherever a number can: screens, ranges, memories, sources and amounts. The host
+supplies the values. The language itself doesn't know any names, and there's no eval. An OSC
+numeric argument can be a string of arithmetic too. The hosted build can be installed as an
+app and runs with no signal, and the desktop launcher stops its server with SIGTERM before it
+resorts to SIGKILL. (v1.6.0 had all of this, but its desktop app didn't build, because
+Tauri's JavaScript and Rust packages were on different minor versions. v1.6.1 is the same
+release with them matched, at Tauri 2.12.)
 
-**v1.5.2 — the desktop launcher says why a start failed.** Pressing Start
-with the port held — another copy of Mynah, or its server started by hand —
-used to look like nothing happening. The launcher now says so on the click
-(and keeps Open available, since what is listening is usually Mynah), names
-a port the OS refuses, and quotes a server that dies right after starting
-with its last output lines; the shell is av-launcher 21bc307. Nothing in the
-language or the app changed.
+**v1.5.2: the desktop launcher says why a start failed.** Pressing Start while something
+held the port (another copy of Mynah, or its server started by hand) used to look like
+nothing happening. Now the launcher says so on the click (and keeps Open available, since
+what's listening is usually Mynah), names a port the OS refuses, and quotes the last output
+lines of a server that dies right after starting. The shell is av-launcher 21bc307. Nothing
+in the language or the app changed.
 
-**v1.5.1 — the desktop launcher stops its server on every exit path.** ⌘Q and
-Quit from the Dock left the embedded server running after the app was gone,
-holding the port with no tray left to stop it from; the launcher shell is now
+**v1.5.1: the desktop launcher stops its server on every exit path.** ⌘Q and
+Quit from the Dock used to leave the embedded server running after the app had gone,
+holding the port with no tray left to stop it from. The launcher shell is now
 av-launcher 2c83ad7, which shuts it down on every exit. Nothing in the language
 or the app changed.
 
-**v1.5.0 — audio on Midra 4K / Alta 4K, routed rather than patched.**
+**v1.5.0: audio on Midra 4K / Alta 4K, routed rather than patched.**
 
-There is no channel matrix on that platform. Audio moves as eight-channel
-sources — `Input 1–16`, `Dante 1 Thru 8` (four groups), `Line Input 1–2`,
-`Player`, `Custom 1–10` — and every place it comes out is a point that carries
-one or follows something. `Set Audio Patch Input 3 To Screen 1` writes the
-preview preset's **audio layer**, which takes with the preset like the layers;
-`Set Audio Patch Input 4 To Output 1` sets a video output to direct routing and
-gives it the source; `Set Audio Follow Layer 2 On Screen 1`, `Follow Screen 2 On
-Line Output 1`, `Follow Widget 3 On Multiviewer` set what a point follows; the
-mutes land where the device keeps them, an input's on every plug it has.
-`docs/SYNTAX.md §11` has both platforms' audio grammars side by side and
-`docs/PATHS.md` the table. Every line was written on the Midra 4K simulator as a
-Pulse 4K and the Alta 4K simulator as a Zenith 200 and read back; the object
-model and enums came off a live Pulse 4K. Nothing about LivePremier's matrix
-grammar changed. Two words are deliberately not the vendor's — `Player` for the
-media player and `Follow Video` for an aux following its content — so that
-`Memory` keeps `Me` and `Colour` keeps `Co`.
+There's no channel matrix on that platform. Audio moves as eight-channel sources, which are
+`Input 1–16`, `Dante 1 Thru 8` (four groups), `Line Input 1–2`, `Player` and `Custom 1–10`,
+and every place it comes out is a point that carries one or follows something.
+`Set Audio Patch Input 3 To Screen 1` writes the preview preset's **audio layer**, which
+takes with the preset like the layers do. `Set Audio Patch Input 4 To Output 1` sets a video
+output to direct routing and gives it the source. `Set Audio Follow Layer 2 On Screen 1`,
+`Follow Screen 2 On Line Output 1` and `Follow Widget 3 On Multiviewer` set what a point
+follows. The mutes land where the device keeps them, an input's on every plug it has.
+`docs/SYNTAX.md §11` has both platforms' audio grammars side by side, and `docs/PATHS.md` has
+the table. Every line was written on the Midra 4K simulator as a Pulse 4K and the Alta 4K
+simulator as a Zenith 200 and read back, and the object model and enums came off a live Pulse
+4K. Nothing about LivePremier's matrix grammar changed. Two words aren't the vendor's, on
+purpose: `Player` for the media player and `Follow Video` for an aux following its content,
+so that `Memory` keeps `Me` and `Colour` keeps `Co`.
 
-**v1.4.0 — a second platform in the language core, and a save mode the device
+**v1.4.0: a second platform in the language core, and a save mode the device
 had been refusing in silence.**
 
-`compile`, `parse` and `run` take a `platform` — `LIVEPREMIER` (the default,
+`compile`, `parse` and `run` take a `platform`: `LIVEPREMIER` (the default,
 byte-identical to before) or `MIDRA`, which spells the same grammar for Midra 4K
 (QuickVu, Pulse, Eikos, QuickMatrix) and Alta 4K (Zenith 100 / 200): takes under
 `transition/…`, memories under `preset/bank`, `preset/auxBank` and
@@ -311,49 +306,48 @@ and Alta 4K simulators and read back, and then, on 2026-09-12/13, proven on a
 [LivePremier Plus](https://github.com/stoatworks-labs/livepremier-plus), which
 embeds this core: 35 of 35 lines compiled for `MIDRA` answered on the box, a
 harness wrote the port's whole vocabulary and read it back, and the operator
-typed `Recall`, `Store … Preview` and `Delete` at its Console — this grammar's
+typed `Recall`, `Store … Preview` and `Delete` at its Console, which were this grammar's
 first writes to Midra hardware. (A `Set … Opacity` typed there the same morning
-was refused by that build's Console, which handed the compiler no device facts
-— a LivePremier Plus bug, fixed in its 0.7.0.) The web app and the Stream Deck
+was refused by that build's Console, which handed the compiler no device facts.
+That was a LivePremier Plus bug, fixed in its 0.7.0.) The web app and the Stream Deck
 plugin still assume LivePremier; only the core knows the second platform.
 
 **Fixed:** the master save mode is `SAVE_FROM_PRW`, not `SAVE_FROM_PVW`, on
 both platforms. The device refused the wrong spelling without a word and kept
 the previous mode, so every `Store Master … Preview` this compiler had ever
-emitted stored from program. Written to the LivePremier simulator and read
-back; the test that had pinned the wrong value now pins the right one.
+emitted had stored from program. Written to the LivePremier simulator and read
+back, and the test that had pinned the wrong value now pins the right one.
 
-**v1.3.4 — field testing, and it has driven a real switcher.**
+**v1.3.4: field testing, and it's driven a real switcher.**
 
 Verified on a physical **Aquilon C** on firmware 6.2.73: all 21 paths in
-`docs/PATHS.md` resolve, and every verb was executed from the command line —
-store, recall, label, delete, a layer memory, a program recall, a Take, and the
-six-op masked master store, with the filters read back exactly as compiled. The
-empty-memory behaviour reproduced identically to the simulator. Test memories
-were deleted afterwards and the box left clean.
+`docs/PATHS.md` resolve, and every verb was run from the command line (store, recall,
+label, delete, a layer memory, a program recall, a Take, and the six-op masked master
+store), with the filters read back exactly as compiled. The empty-memory behaviour was
+identical to the simulator's. The test memories were deleted afterwards and the box left
+clean.
 
-Hardware also found two bugs, both fixed: a label was reported unconfirmed
+The hardware also found two bugs, both fixed: a label was reported unconfirmed
 because the echo matcher only accepted `true`, and preview turned out to map to
-buffer `A` on one screen and `B` on another, so there is nothing to hard-code
+buffer `A` on one screen and `B` on another, so there's nothing to hard-code
 there.
 
 **A second frame, 2026-09-09** (`NLC_C`, firmware 6.2.73). Every path this
-grammar compiles was issued at the box and answered, with **no `E12`** — the 21
-memory paths, and, for the first time on real hardware, **the audio routing
+grammar compiles was issued at the box and answered, with **no `E12`**: the 21
+memory paths and, for the first time on real hardware, **the audio routing
 matrix**. `OUTPUT_1` channel 1 read `source="DANTE_1_CHANNEL_1"`, and a mute
 toggle round-tripped and restored. The device also confirmed the shapes the echo
 matcher depends on: a label echoes back as the STRING written (31 ms), a
 record-mask filter as the ARRAY written (155 ms). `useLink` now has tests
-holding it to exactly those shapes, so that bug cannot come back quietly.
+holding it to those exact shapes, so that bug can't sneak back in.
 
-Not yet done: neither the **X-Keys** nor the **Stream Deck** path has been run
-against real hardware. And there is a distinction worth keeping. What the box has
-answered is every path this grammar *emits*, including live layer control and the
-audio matrix; writes to those same paths were executed and restored on hardware —
-but by a separate test harness, not by Mynah itself. So the vocabulary is proven
-on a device; Mynah's own hand on the wire is proven for the memory verbs and not
-yet for the newer ones. The object model is larger still, and the syntax is built
-to grow over it.
+Not done yet: neither the **X-Keys** nor the **Stream Deck** path has been run
+against real hardware. And there's a distinction worth keeping. The box has answered
+every path this grammar *emits*, including live layer control and the audio matrix, and
+writes to those same paths were executed and restored on hardware, but by a separate test
+harness rather than by Mynah itself. So the vocabulary is proven on a device, but Mynah's
+own hand on the wire is only proven for the memory verbs, not yet for the newer ones. The
+object model is bigger still, and the syntax is built to grow over it.
 
 <!-- selfhost:start -->
 ## Run your own copy
