@@ -457,10 +457,11 @@ is `Follow Video`, because `Content` would take `Co` off `Colour`.
 
 ## 12. What this does not cover yet
 
-The first pass is memories: recall, store, delete, label, take, and scope.
-The device's object model is far larger than the part addressed here, and the
-intention is for the syntax to grow over it —
-source assignment, layer geometry, transitions, timers, multiviewer layouts.
+The first pass was memories: recall, store, delete, label, take, and scope.
+`Set` has since added live layers (source, size, position and opacity, §3) in
+v1.3.0 and audio (§11) in v1.3.4. The device's object model is far larger than
+the part addressed here, and the intention is for the syntax to grow over it —
+transitions, timers, multiviewer layouts.
 The grammar above is built so that growth is new *object keywords*, not new
 grammar rules.
 

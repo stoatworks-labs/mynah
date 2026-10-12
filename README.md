@@ -232,8 +232,8 @@ it.
 For a Stream Deck there are two routes: the bundled Elgato plugin in
 [`streamdeck/`](streamdeck/), or, better if you already run Companion,
 **[companion-module-mynah](https://github.com/stoatworks-labs/companion-module-mynah)**,
-which brings pages, variables, feedbacks and a preset library of around a
-hundred ready-made buttons. Both bundle the compiler from `src/lang/` rather
+which brings pages, variables, feedbacks and a preset library of 186
+ready-made buttons. Both bundle the compiler from `src/lang/` rather
 than reimplementing the grammar.
 
 ## Running it
