@@ -7,7 +7,7 @@ Onboarding for LLM agents and newcomers.
 A static browser SPA (React/TS/Vite, no backend) that gives Analog Way
 LivePremier switchers a lighting-desk command line, plus a Stream Deck plugin
 that runs the same grammar. Same shape as the fleet's other browser tools — see
-`otter-edid-editor`, `blend-calc`.
+`edid-editor`, `blend-calc`.
 
 ## Layout
 

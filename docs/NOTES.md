@@ -11,7 +11,7 @@ Cross-cutting notes that are not specific to this repo live in
 
 **`~/projects/video/mynah`** — **v1.0.0, PUBLIC, MIT**, tagged 2026-08-21.
 React/TS/Vite static SPA in the browser-tool house shape
-([otter edid editor](https://github.com/stoatworks-labs/otter-edid-editor/blob/main/docs/NOTES.md) (`otter-edid-editor`)). `github.com/stoatworks-labs/mynah`, branch
+([edid editor](https://github.com/stoatworks-labs/edid-editor/blob/main/docs/NOTES.md) (`edid-editor`)). `github.com/stoatworks-labs/mynah`, branch
 `main` (`gh repo create --push` landed on `master` again — same trap as
 [livepremier plus](https://github.com/stoatworks-labs/livepremier-plus/blob/main/docs/NOTES.md) (`livepremier-plus`)). AI disclaimer, ATTRIBUTIONS, support footer,
 wrangler.toml, CSP `_headers`, CI and Dependabot all present.
