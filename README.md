@@ -29,6 +29,8 @@ It runs in a browser with nothing installed, talks to the switcher directly,
 and drives the same commands from a keyboard, an X-Keys panel, or a Stream
 Deck.
 
+The [project page](https://stoatworks-labs.com/software/mynah/) has the downloads and the user guide. The hosted copy at [mynah.stoatworks-labs.com](https://mynah.stoatworks-labs.com) is the syntax reference, running against a simulator, and its [page on Stoatworks Labs](https://stoatworks-labs.com/web-tools/mynah/) covers running Mynah on your own server.
+
 ![Mynah's hosted demo compiling a masked master store: one typed line, six ordered writes with every path shown, and the simulated screens beneath](docs/screenshots/mynah.png)
 
 <sub>The hosted demo with a masked master store typed and compiled but not sent: one line becomes six ordered writes, the record mask narrowed to two screens and two categories, and every path is shown before anything would leave the browser. The simulator's on and nothing here reaches real hardware, and the page says so.</sub>

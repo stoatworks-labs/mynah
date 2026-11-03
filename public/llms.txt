@@ -1,0 +1,17 @@
+# Mynah
+
+> LivePremier command syntax, and what each command sends
+
+A lighting-desk command line for Analog Way switchers: LivePremier, and since 1.4.0 Midra 4K and Alta 4K as a language core other apps embed, with their audio routed, not patched, since 1.5.0. Type “Recall Screen 1 Memory 5” and press Enter: grandMA3's grammar rules with the switcher's own vocabulary. It shows you the device paths a command will produce before it sends anything, and reports an empty memory as empty rather than as a success. The memory paths were checked leaf by leaf on a physical Aquilon C, and the Midra spellings on a live Pulse 4K.
+
+This hosted copy runs against a model of a LivePremier built into the page, so you can learn the syntax and watch what each command does. Nothing here reaches real hardware: a page on https can't reach a switcher, so live control needs the desktop app, or Mynah run over http from the container or a local checkout.
+
+It runs in the browser at https://mynah.stoatworks-labs.com/ and is free to use.
+
+## Links
+
+- [Mynah on Stoatworks Labs](https://stoatworks-labs.com/web-tools/mynah/): what it is, with links to everything else
+- [Project page](https://stoatworks-labs.com/software/mynah/)
+- [User guide](https://stoatworks-labs.com/software/mynah/guide/)
+- [Source code](https://github.com/stoatworks-labs/mynah)
+- [Self-hosting](https://stoatworks-labs.com/web-tools/self-hosting/): running it on your own server

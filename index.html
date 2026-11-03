@@ -3,11 +3,50 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Mynah — LivePremier command line</title>
-    <meta
-      name="description"
-      content="A lighting-desk command line for Analog Way LivePremier switchers. Type Store, Recall and Take instead of hunting for a button."
-    />
+    <title>Mynah — LivePremier command syntax, and what each command sends</title>
+    <meta name="description" content="A lighting-desk command line for Analog Way LivePremier switchers. This hosted copy shows the device paths each command produces, against a built-in simulator. Free, in a browser." />
+    <link rel="canonical" href="https://mynah.stoatworks-labs.com/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Stoatworks Labs" />
+    <meta property="og:title" content="Mynah — LivePremier command syntax, and what each command sends" />
+    <meta property="og:description" content="A lighting-desk command line for Analog Way LivePremier switchers. This hosted copy shows the device paths each command produces, against a built-in simulator. Free, in a browser." />
+    <meta property="og:url" content="https://mynah.stoatworks-labs.com/" />
+    <meta property="og:image" content="https://stoatworks-labs.com/thumbs/mynah.png" />
+    <meta property="og:image:width" content="1280" />
+    <meta property="og:image:height" content="720" />
+    <meta property="og:image:alt" content="Mynah" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "@id": "https://mynah.stoatworks-labs.com#app",
+        "name": "Mynah",
+        "url": "https://mynah.stoatworks-labs.com",
+        "description": "A lighting-desk command line for Analog Way LivePremier switchers. This hosted copy shows the device paths each command produces, against a built-in simulator. Free, in a browser.",
+        "applicationCategory": "MultimediaApplication",
+        "operatingSystem": "Any (runs in a web browser)",
+        "isAccessibleForFree": true,
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "GBP"
+        },
+        "author": {
+          "@id": "https://stoatworks-labs.com/#organization",
+          "@type": "Organization",
+          "name": "Stoatworks Labs",
+          "url": "https://stoatworks-labs.com/"
+        },
+        "publisher": {
+          "@id": "https://stoatworks-labs.com/#organization"
+        },
+        "sameAs": [
+          "https://stoatworks-labs.com/web-tools/mynah/",
+          "https://github.com/stoatworks-labs/mynah"
+        ]
+      }
+    </script>
     <link rel="manifest" href="/manifest.webmanifest" />
     <!-- iOS ignores the manifest's icons entirely and wants a PNG of its own. -->
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
@@ -15,6 +54,18 @@
     <meta name="theme-color" content="#0e1013" />
   </head>
   <body>
+    <noscript>
+      <h1>Mynah</h1>
+      <p>A lighting-desk command line for Analog Way switchers: LivePremier, and since 1.4.0 Midra 4K and Alta 4K as a language core other apps embed, with their audio routed, not patched, since 1.5.0. Type “Recall Screen 1 Memory 5” and press Enter: grandMA3's grammar rules with the switcher's own vocabulary. It shows you the device paths a command will produce before it sends anything, and reports an empty memory as empty rather than as a success. The memory paths were checked leaf by leaf on a physical Aquilon C, and the Midra spellings on a live Pulse 4K.</p>
+      <p>This hosted copy runs against a model of a LivePremier built into the page, so you can learn the syntax and watch what each command does. Nothing here reaches real hardware: a page on https can't reach a switcher, so live control needs the desktop app, or Mynah run over http from the container or a local checkout.</p>
+      <p>It needs JavaScript to run.</p>
+      <ul>
+        <li><a href="https://stoatworks-labs.com/web-tools/mynah/">Mynah on Stoatworks Labs</a></li>
+        <li><a href="https://stoatworks-labs.com/software/mynah/">Project page</a></li>
+        <li><a href="https://stoatworks-labs.com/software/mynah/guide/">User guide</a></li>
+        <li><a href="https://github.com/stoatworks-labs/mynah">Source code on GitHub</a></li>
+      </ul>
+    </noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <!--

@@ -4,7 +4,7 @@ import { bufferForMode } from './lang/model.ts'
 import { type DeviceFacts, type Selection } from './lang/compile.ts'
 import { completions, keywordTable } from './lang/keywords.ts'
 import { LANGUAGE_LABELS, declared, run as runLine, sniff } from './lang/dialects/index.ts'
-import type { AwjMessage } from './link/transport.ts'
+import { isDesktop, type AwjMessage } from './link/transport.ts'
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, type Settings } from './settings.ts'
 import { LanguageBar } from './components/LanguageBar.tsx'
 import { VERIFIED_FIRMWARE } from './lang/model.ts'
@@ -351,7 +351,18 @@ export function App() {
       <header className="masthead">
         <div>
           <h1>Mynah</h1>
-          <p className="tagline">A command line for LivePremier</p>
+          <p className="tagline">
+            A command line for LivePremier
+            {/* The web build only: in the desktop window a link would take the app with it. */}
+            {isDesktop() ? null : (
+              <>
+                {' · '}
+                <a href="https://stoatworks-labs.com/web-tools/mynah/" target="_blank" rel="noopener">
+                  About this tool
+                </a>
+              </>
+            )}
+          </p>
         </div>
         <ConnectionBar
           state={link.state}

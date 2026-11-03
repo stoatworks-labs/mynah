@@ -68,6 +68,10 @@ body {
   font-size: 12px;
 }
 
+.tagline a {
+  color: inherit;
+}
+
 .connbar {
   display: flex;
   flex-wrap: wrap;
