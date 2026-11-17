@@ -1,19 +1,42 @@
-/* Mynah — a command line, so it looks like one. Dark, monospace, dense. */
+/* Mynah — a command line, so the line itself, the log and the vocabulary are
+   monospace and dense. The colours come from the shared Stoatworks theme
+   (stoatworks-theme.css, imported first), so the page follows the system's light
+   or dark setting like every fleet tool. */
 
 :root {
-  --bg: #0e1013;
-  --bg-raised: #161a1f;
-  --bg-sunken: #0a0c0e;
-  --line: #262c34;
-  --text: #dfe4ea;
-  --text-dim: #8b95a3;
-  --text-faint: #5b6674;
-  --accent: #ffc14d;
-  --ok: #63c98a;
-  --warn: #e3a34a;
-  --bad: #e06c6c;
-  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
-  color-scheme: dark;
+  --bg: var(--sw-paper);
+  --bg-raised: var(--sw-card);
+  --bg-sunken: var(--sw-tint);
+  --line: var(--sw-line);
+  --text: var(--sw-ink);
+  --text-dim: var(--sw-muted);
+  --text-faint: var(--sw-faint);
+  --accent: var(--sw-accent);
+  --ok: var(--sw-ok);
+  --warn: var(--sw-warn);
+  --bad: var(--sw-bad);
+  --mono: var(--sw-mono);
+  /* Program is on air, so it is tally red. */
+  --on-air: var(--sw-bad);
+
+  /* The keyword classes the suggestion chips are coloured by: functions amber,
+     objects blue, categories violet. Light-mode values here, dark below. */
+  --kw-function: #8f5f00;
+  --kw-object: #2f6a9e;
+  --kw-category: #6c4aa8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --kw-function: #ffc14d;
+    --kw-object: #7fb3e0;
+    --kw-category: #b79ae0;
+  }
+}
+:root[data-theme="dark"] {
+  --kw-function: #ffc14d;
+  --kw-object: #7fb3e0;
+  --kw-category: #b79ae0;
 }
 
 * {
@@ -30,7 +53,7 @@ body,
 body {
   background: var(--bg);
   color: var(--text);
-  font: 14px/1.5 var(--mono);
+  font: 14px/1.5 var(--sw-font);
   -webkit-font-smoothing: antialiased;
 }
 
@@ -45,38 +68,73 @@ body {
 
 /* --- masthead ----------------------------------------------------------- */
 
+/* The navy bar runs the full width of the window while its contents stay on the
+   page's column: border-image paints past the box without widening the page. */
 .masthead {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 16px;
-  align-items: flex-end;
-  justify-content: space-between;
-  padding: 22px 0 14px;
-  border-bottom: 1px solid var(--line);
+  gap: 10px 16px;
+  padding: 10px 0;
+  border-image: linear-gradient(var(--sw-navy), var(--sw-navy)) fill 0 / 0 / 0 100vmax;
+
+  /* The bar is navy in both modes, so what sits on it takes its light inks and
+     the theme's dark-mode state colours for the connection dot. */
+  --text: var(--sw-navy-ink);
+  --text-dim: var(--sw-navy-ink-2);
+  --text-faint: color-mix(in srgb, var(--sw-navy-ink-2) 75%, var(--sw-navy));
+  --ok: #6fb592;
+  --warn: #d1ad5a;
+  --bad: #e07a70;
 }
 
-.masthead h1 {
-  margin: 0;
-  font-size: 22px;
-  letter-spacing: 0.02em;
-  color: var(--accent);
+.masthead-brand {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 14px;
 }
 
 .tagline {
-  margin: 2px 0 0;
-  color: var(--text-dim);
   font-size: 12px;
 }
 
-.tagline a {
-  color: inherit;
+/* Labels beside their fields, so the bar stays one row. */
+.masthead .field {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.masthead .field input {
+  background: var(--sw-navy-tint);
+  color: var(--sw-navy-ink);
+  border-color: var(--sw-navy-line);
+}
+
+.masthead .btn {
+  background: transparent;
+  color: var(--sw-navy-ink);
+  border-color: var(--sw-navy-line);
+}
+
+.masthead .btn:hover {
+  border-color: var(--sw-accent-soft);
+}
+
+.masthead input[type='checkbox'] {
+  accent-color: var(--sw-accent-soft);
+}
+
+.masthead .about {
+  text-decoration: none;
+  font-size: 0.9rem;
+  line-height: 1.25;
 }
 
 .connbar {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  align-items: flex-end;
+  align-items: center;
+  margin-left: auto;
 }
 
 .field {
@@ -89,17 +147,18 @@ body {
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-faint);
+  color: var(--text-dim);
 }
 
 input[type='text'],
 .field input,
 .cl-input {
-  background: var(--bg-sunken);
+  background: var(--bg-raised);
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--sw-radius-sm);
   color: var(--text);
   font: inherit;
+  font-family: var(--mono);
   padding: 5px 8px;
 }
 
@@ -110,7 +169,7 @@ input[type='text'],
 .btn {
   background: var(--bg-raised);
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--sw-radius-sm);
   color: var(--text);
   cursor: pointer;
   font: inherit;
@@ -118,7 +177,7 @@ input[type='text'],
 }
 
 .btn:hover {
-  border-color: var(--text-faint);
+  border-color: var(--accent);
 }
 
 .btn-quiet {
@@ -134,7 +193,6 @@ input[type='text'],
   gap: 6px;
   font-size: 12px;
   color: var(--text-dim);
-  padding-bottom: 5px;
 }
 
 .dot {
@@ -179,11 +237,12 @@ input[type='text'],
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-faint);
+  color: var(--text-dim);
 }
 
 .scope-value {
   color: var(--accent);
+  font-family: var(--mono);
 }
 
 .scope-none {
@@ -243,8 +302,9 @@ input[type='text'],
 .commandline {
   background: var(--bg-raised);
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--sw-radius);
   padding: 12px 14px;
+  font-family: var(--mono);
 }
 
 .cl-row {
@@ -290,16 +350,16 @@ input[type='text'],
 }
 
 .chip-function {
-  color: var(--accent);
-  border-color: #4a3c1c;
+  color: var(--kw-function);
+  border-color: color-mix(in srgb, var(--kw-function) 35%, var(--line));
 }
 .chip-object {
-  color: #7fb3e0;
-  border-color: #24384a;
+  color: var(--kw-object);
+  border-color: color-mix(in srgb, var(--kw-object) 35%, var(--line));
 }
 .chip-category {
-  color: #b79ae0;
-  border-color: #372c4a;
+  color: var(--kw-category);
+  border-color: color-mix(in srgb, var(--kw-category) 35%, var(--line));
 }
 
 .cl-preview {
@@ -383,12 +443,9 @@ input[type='text'],
 
 .log h2,
 .help h2 {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--text-faint);
+  font-size: 15px;
+  color: var(--text);
   margin: 0 0 10px;
-  font-weight: 500;
 }
 
 .empty {
@@ -401,6 +458,7 @@ input[type='text'],
   list-style: none;
   margin: 0;
   padding: 0;
+  font-family: var(--mono);
 }
 
 .log-item {
@@ -464,9 +522,9 @@ input[type='text'],
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-faint);
+  color: var(--text-dim);
   margin: 0 0 5px;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 .help-group ul {
@@ -485,6 +543,7 @@ input[type='text'],
 
 .help-word {
   color: var(--text-dim);
+  font-family: var(--mono);
 }
 
 .help-short {
@@ -517,16 +576,16 @@ input[type='text'],
   align-items: baseline;
   margin: 14px 0 0;
   padding: 10px 14px;
-  border: 1px solid #6a4a12;
-  border-left: 3px solid var(--accent);
-  border-radius: 5px;
-  background: #241c0c;
+  border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--line));
+  border-left: 3px solid var(--warn);
+  border-radius: var(--sw-radius-sm);
+  background: color-mix(in srgb, var(--warn) 9%, var(--bg-raised));
   font-size: 12px;
 }
 
 .demo-banner strong {
-  color: var(--accent);
-  font-weight: 500;
+  color: var(--warn);
+  font-weight: 600;
 }
 
 .demo-banner span {
@@ -549,12 +608,9 @@ input[type='text'],
 }
 
 .wire h2 {
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.09em;
-  color: var(--text-faint);
+  font-size: 15px;
+  color: var(--text);
   margin: 0;
-  font-weight: 500;
 }
 
 .wire-note {
@@ -570,7 +626,7 @@ input[type='text'],
 
 .wire-screen {
   border: 1px solid var(--line);
-  border-radius: 6px;
+  border-radius: var(--sw-radius);
   padding: 10px;
   background: var(--bg-raised);
 }
@@ -587,6 +643,7 @@ input[type='text'],
 .wire-canvas {
   color: var(--text-faint);
   font-size: 11px;
+  font-family: var(--mono);
 }
 
 .wire-panes {
@@ -598,14 +655,15 @@ input[type='text'],
 .wire-pane {
   margin: 0;
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--sw-radius-sm);
   padding: 6px;
   background: var(--bg-sunken);
+  font-family: var(--mono);
 }
 
 /* Program is the one that matters, so it is the one that is coloured. */
 .wire-pane.on-air {
-  border-color: #7a3030;
+  border-color: color-mix(in srgb, var(--on-air) 60%, var(--line));
 }
 
 .wire-pane figcaption {
@@ -624,7 +682,7 @@ input[type='text'],
 }
 
 .wire-pane.on-air .wire-role {
-  color: #e08585;
+  color: var(--on-air);
 }
 
 .wire-buffer {
@@ -640,9 +698,11 @@ input[type='text'],
   border-radius: 2px;
 }
 
+/* The panes are pictures of the switcher's output, so they are drawn on the
+   stage, dark in both modes, and keep their dark-ground colours. */
 .wire-bg {
-  fill: #0d1014;
-  stroke: var(--line);
+  fill: var(--sw-stage);
+  stroke: var(--sw-stage-line);
   stroke-width: 0.5;
 }
 
@@ -665,7 +725,7 @@ input[type='text'],
 }
 
 .wire-empty-text {
-  fill: var(--text-faint);
+  fill: color-mix(in srgb, var(--sw-stage-ink) 40%, var(--sw-stage));
   font-size: 7px;
   font-family: var(--mono);
 }
@@ -721,13 +781,13 @@ input[type='text'],
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--text-faint);
+  color: var(--text-dim);
 }
 
 .select {
-  background: var(--bg-sunken);
+  background: var(--bg-raised);
   border: 1px solid var(--line);
-  border-radius: 4px;
+  border-radius: var(--sw-radius-sm);
   color: var(--text);
   font: inherit;
   font-size: 12px;

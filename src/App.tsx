@@ -348,21 +348,12 @@ export function App() {
 
   return (
     <div className="app">
-      <header className="masthead">
-        <div>
-          <h1>Mynah</h1>
-          <p className="tagline">
-            A command line for LivePremier
-            {/* The web build only: in the desktop window a link would take the app with it. */}
-            {isDesktop() ? null : (
-              <>
-                {' · '}
-                <a href="https://stoatworks-labs.com/web-tools/mynah/" target="_blank" rel="noopener">
-                  About this tool
-                </a>
-              </>
-            )}
-          </p>
+      <header className="masthead sw-bar">
+        <div className="masthead-brand">
+          <h1 className="sw-brand">
+            <span className="sw-mark" aria-hidden="true">❯</span> Mynah
+          </h1>
+          <p className="tagline sw-sub">A command line for LivePremier</p>
         </div>
         <ConnectionBar
           state={link.state}
@@ -380,6 +371,20 @@ export function App() {
           }}
           demoLocked={mixedContentBlocked()}
         />
+        {/* The web build only: in the desktop window a link would take the app with it. The page
+            carries no about.js yet, so this opens the tool's page; once about.js is synced in, it
+            opens the About dialog instead. */}
+        {isDesktop() ? null : (
+          <a
+            className="sw-btn about"
+            href="https://stoatworks-labs.com/web-tools/mynah/"
+            target="_blank"
+            rel="noopener"
+            data-stoatworks-about
+          >
+            About
+          </a>
+        )}
       </header>
 
       <LanguageBar
