@@ -371,19 +371,12 @@ export function App() {
           }}
           demoLocked={mixedContentBlocked()}
         />
-        {/* The web build only: in the desktop window a link would take the app with it. The page
-            carries no about.js yet, so this opens the tool's page; once about.js is synced in, it
-            opens the About dialog instead. */}
+        {/* The web build only, as before: the desktop window leaves it out. Opens the shared
+            About dialog — see public/about.js, which delegates this attribute from the document. */}
         {isDesktop() ? null : (
-          <a
-            className="sw-btn about"
-            href="https://stoatworks-labs.com/web-tools/mynah/"
-            target="_blank"
-            rel="noopener"
-            data-stoatworks-about
-          >
+          <button type="button" className="btn" data-stoatworks-about>
             About
-          </a>
+          </button>
         )}
       </header>
 
