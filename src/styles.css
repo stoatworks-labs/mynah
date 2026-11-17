@@ -123,12 +123,6 @@ body {
   accent-color: var(--sw-accent-soft);
 }
 
-.masthead .about {
-  text-decoration: none;
-  font-size: 0.9rem;
-  line-height: 1.25;
-}
-
 .connbar {
   display: flex;
   flex-wrap: wrap;
@@ -141,6 +135,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: 3px;
+}
+
+/* The display above beats the UA's [hidden] rule, so the Simulator's
+   Device and Port fields would otherwise still show. */
+.field[hidden] {
+  display: none;
 }
 
 .field span {
